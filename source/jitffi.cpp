@@ -2,6 +2,7 @@
 #include "opcode.h"
 #include <cassert>
 #include <algorithm>
+#include <functional>
 
 #if defined(_WIN32)
 #	include <Windows.h>
@@ -62,29 +63,16 @@ namespace JitFFI
 	// JitFuncCallerCreater
 
 
-	byte JitFuncCallerCreater::get_sub_offset() {
-#if (defined(_WIN64))
-		return get_add_offset();
-#elif (defined(__x86_64__))
-		return 0x8 + ((argn % 2 == 0) ? 0 : 0x8);
-#endif
+	byte JitFuncCallerCreater::get_offset() {
+		return (push_count % 2 == 0) ? 0 : 0x8;
 	}
 
 	byte JitFuncCallerCreater::get_add_offset() {
-#if (defined(_WIN64))
-		int nargn = (argn % 2 == 0) ? argn : argn + 1;
-		return 0x28 + std::max<int>(0, nargn - 4) * 0x8;
-#elif (defined(__x86_64__))
-		return 0x8 + (push_count + 1) / 2 * 0x10;
-#endif
-	}
-
-	void JitFuncCallerCreater::sub_rsp() {
-		OpCode_x64::sub_rsp(jfc, get_sub_offset());
+		return 0x8 + get_offset() + push_count * 0x8;
 	}
 
 	byte& JitFuncCallerCreater::sub_rsp_unadjusted() {
-		OpCode_x64::sub_rsp(jfc, 0);
+		OpCode_x64::sub_rsp(jfc, 0x8);
 		return *(jfc.end() - 1);
 	}
 
@@ -93,34 +81,59 @@ namespace JitFFI
 	}
 
 	void JitFuncCallerCreater::adjust_sub_rsp(byte &d) {
-		d = get_sub_offset();
+		d += get_offset();
 	}
 
-	void JitFuncCallerCreater::addarg_int(uint64_t dat) {
+	void JitFuncCallerCreater::add_int(uint64_t dat) {
+		return _add_int([&](unsigned int c) { return OpCode_curr::add_int(jfc, dat, c); });
+	}
+	void JitFuncCallerCreater::add_int_uint32(uint32_t dat) {
+		return _add_int([&](unsigned int c) { return OpCode_curr::add_int_uint32(jfc, dat, c); });
+	}
+	void JitFuncCallerCreater::add_int_rbx() {
+		return _add_int([&](unsigned int c) { return OpCode_curr::add_int_rbx(jfc, c); });
+	}
+	void JitFuncCallerCreater::add_double(uint64_t dat) {
+		return _add_double([&](unsigned int c) { return OpCode_curr::add_double(jfc, dat, c); });
+	}
+
+	void JitFuncCallerCreater::_add_int(const std::function<OpHandler> &handler) {
 #if (defined(_WIN64))
 		assert(argn - add_count >= 0);
 		++add_count;
-		push_count += OpCode_win64::add_int(jfc, dat, argn - add_count);
+		push_count += handler(argn - add_count);
 #elif (defined(__x86_64__))
-		assert(addarg_double_count >= 0);
+		assert(addarg_int_count >= 0);
 		--addarg_int_count;
-		push_count += OpCode_sysv64::add_int(jfc, dat, addarg_int_count);
+		push_count += handler(addarg_int_count);
 #endif
 	}
-	void JitFuncCallerCreater::addarg_double(uint64_t dat) {
+	void JitFuncCallerCreater::_add_double(const std::function<OpHandler> &handler) {
 #if (defined(_WIN64))
 		assert(argn - add_count >= 0);
 		++add_count;
-		push_count += OpCode_win64::add_double(jfc, dat, argn - add_count);
+		push_count += handler(argn - add_count);
 #elif (defined(__x86_64__))
 		assert(addarg_double_count >= 0);
 		--addarg_double_count;
-		push_count += OpCode_sysv64::add_double(jfc, dat, addarg_double_count);
+		push_count += handler(addarg_double_count);
 #endif
 	}
 
+	void JitFuncCallerCreater::push(uint64_t dat) {
+		OpCode_x64::mov_rax_uint64(jfc, dat);
+		OpCode_x64::push_rax(jfc);
+		push_count += 1;
+	}
+
 	void JitFuncCallerCreater::call() {
+#if (defined(_WIN64))
+		OpCode_x64::sub_rsp(jfc, 0x20);
+#endif
 		OpCode::call_func(jfc, func);
+#if (defined(_WIN64))
+		OpCode_x64::add_rsp(jfc, 0x20);
+#endif
 	}
 
 	void JitFuncCallerCreater::ret() {

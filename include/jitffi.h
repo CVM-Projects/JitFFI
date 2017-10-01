@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 
 namespace JitFFI
 {
@@ -110,21 +111,15 @@ namespace JitFFI
 			push(dat2);
 		}
 		void push(byte dat1, byte dat2, byte dat3) {
-			push(dat1);
-			push(dat2);
+			push(dat1, dat2);
 			push(dat3);
 		}
 		void push(byte dat1, byte dat2, byte dat3, byte dat4) {
-			push(dat1);
-			push(dat2);
-			push(dat3);
+			push(dat1, dat2, dat3);
 			push(dat4);
 		}
 		void push(byte dat1, byte dat2, byte dat3, byte dat4, byte dat5) {
-			push(dat1);
-			push(dat2);
-			push(dat3);
-			push(dat4);
+			push(dat1, dat2, dat3, dat4);
 			push(dat5);
 		}
 		void push_uint16(uint16_t dat) {
@@ -175,8 +170,12 @@ namespace JitFFI
 		byte& sub_rsp_unadjusted();
 		void adjust_sub_rsp(byte &d);
 
-		void addarg_int(uint64_t dat);
-		void addarg_double(uint64_t dat);
+		void add_int(uint64_t dat);
+		void add_int_uint32(uint32_t dat);
+		void add_int_rbx();
+		void add_double(uint64_t dat);
+
+		void push(uint64_t);
 
 		void call();
 		void ret();
@@ -203,10 +202,20 @@ namespace JitFFI
 			addarg_double_count = dou_c;
 		}
 	private:
+#else
+	public:
+		void init_addarg_count(unsigned int int_c, unsigned int dou_c) {}
+	private:
 #endif
 
+		byte get_offset();
 		byte get_sub_offset();
 		byte get_add_offset();
+
+		using OpHandler = unsigned int(unsigned int);
+
+		void _add_int(const std::function<OpHandler> &handler);
+		void _add_double(const std::function<OpHandler> &handler);
 	};
 
 	template <typename T>

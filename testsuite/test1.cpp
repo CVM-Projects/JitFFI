@@ -9,67 +9,91 @@ using namespace JitFFI;
 
 using int64 = int64_t;
 
+void print(int64 n)
+{
+	printf("0x%llX\n", n);
+}
+
 int callerN2(int64 a, int64 b)
 {
-	printf("%lld\n", a);
-	printf("%lld\n", b);
+	print(a);
+	print(b);
 
 	return 12345;
 }
 
+int callerN4(int64 a, int64 b, int64 c, int64 d)
+{
+	print(a);
+	print(b);
+	print(c);
+	print(d);
+
+	return 1234;
+}
+int callerN5(int64 a, int64 b, int64 c, int64 d, int64 e)
+{
+	print(a);
+	print(b);
+	print(c);
+	print(d);
+	print(e);
+
+	return 1234;
+}
 int callerN6(int64 a, int64 b, int64 c, int64 d, int64 e, int64 f)
 {
-	printf("%lld\n", a);
-	printf("%lld\n", b);
-	printf("%lld\n", c);
-	printf("%lld\n", d);
-	printf("%lld\n", e);
-	printf("%lld\n", f);
+	print(a);
+	print(b);
+	print(c);
+	print(d);
+	print(e);
+	print(f);
 
-	return 12345;
+	return 1234;
 }
 
 int callerN(int64 a, int64 b, int64 c, int64 d, int64 e, int64 f, int64 g, int64 h)
 {
-	printf("%lld\n", a);
-	printf("%lld\n", b);
-	printf("%lld\n", c);
-	printf("%lld\n", d);
-	printf("%lld\n", e);
-	printf("%lld\n", f);
-	printf("%lld\n", g);
-	printf("%lld\n", h);
+	print(a);
+	print(b);
+	print(c);
+	print(d);
+	print(e);
+	print(f);
+	print(g);
+	print(h);
 
 	return 12345;
 }
 
 int callerN9(int64 a, int64 b, int64 c, int64 d, int64 e, int64 f, int64 g, int64 h, int64 i)
 {
-	printf("%lld\n", a);
-	printf("%lld\n", b);
-	printf("%lld\n", c);
-	printf("%lld\n", d);
-	printf("%lld\n", e);
-	printf("%lld\n", f);
-	printf("%lld\n", g);
-	printf("%lld\n", h);
-	printf("%lld\n", i);
+	print(a);
+	print(b);
+	print(c);
+	print(d);
+	print(e);
+	print(f);
+	print(g);
+	print(h);
+	print(i);
 
 	return 123456;
 }
 
 int callerN10(int64 a, int64 b, int64 c, int64 d, int64 e, int64 f, int64 g, int64 h, int64 i, int64 j)
 {
-	printf("%lld\n", a);
-	printf("%lld\n", b);
-	printf("%lld\n", c);
-	printf("%lld\n", d);
-	printf("%lld\n", e);
-	printf("%lld\n", f);
-	printf("%lld\n", g);
-	printf("%lld\n", h);
-	printf("%lld\n", i);
-	printf("%lld\n", j);
+	print(a);
+	print(b);
+	print(c);
+	print(d);
+	print(e);
+	print(f);
+	print(g);
+	print(h);
+	print(i);
+	print(j);
 
 	return 1234567;
 }
@@ -84,6 +108,27 @@ int callerX(double a, double b, double c, double d, double e, double f, double g
 	printf("%lf\n", f);
 	printf("%lf\n", g);
 	printf("%lf\n", h);
+
+	return 54321;
+}
+
+int callerX4(double a, double b, double c, double d)
+{
+	printf("%lf\n", a);
+	printf("%lf\n", b);
+	printf("%lf\n", c);
+	printf("%lf\n", d);
+
+	return 54321;
+}
+
+int callerX5(double a, double b, double c, double d, double e)
+{
+	printf("%lf\n", a);
+	printf("%lf\n", b);
+	printf("%lf\n", c);
+	printf("%lf\n", d);
+	printf("%lf\n", e);
 
 	return 54321;
 }
@@ -179,7 +224,7 @@ using CallerProcess = void(JitFuncCreater &jfc);
 
 void Call(CallerProcess *handler)
 {
-	JitFuncPool pool(0x1000, JitFuncPool::ReadOnly);
+	static JitFuncPool pool(0x1000, JitFuncPool::ReadOnly);
 	JitFunc jf(pool);
 
 	byte *begin;
@@ -211,13 +256,15 @@ void Call(CallerProcess *handler)
 }
 
 void Call_1(JitFuncCreater &jfc) {
-	JitFuncCallerCreater jfcc(jfc, &callerX9, 9);
-	jfcc.init_addarg_count(0, 9);
+	const unsigned int argn = 4;
+
+	JitFuncCallerCreater jfcc(jfc, &callerX4, argn);
+	jfcc.init_addarg_count(0, argn);
 
 	byte &v = jfcc.sub_rsp_unadjusted();
 
-	for (double v = 9; v != 0; --v)
-		jfcc.addarg_double(convert_uint64(v));
+	for (double v = argn; v != 0; --v)
+		jfcc.add_double(convert_uint64(v));
 
 	jfcc.adjust_sub_rsp(v);
 
@@ -227,13 +274,15 @@ void Call_1(JitFuncCreater &jfc) {
 }
 
 void Call_2(JitFuncCreater &jfc) {
-	JitFuncCallerCreater jfcc(jfc, &callerN10, 10);
-	jfcc.init_addarg_count(10, 0);
+	const unsigned int argn = 6;
+
+	JitFuncCallerCreater jfcc(jfc, &callerN6, argn);
+	jfcc.init_addarg_count(argn, 0);
 
 	byte &v = jfcc.sub_rsp_unadjusted();
 
-	for (int v = 10; v != 0; --v)
-		jfcc.addarg_int(convert_uint64(v));
+	for (int v = argn; v != 0; --v)
+		jfcc.add_int(convert_uint64(v));
 
 	jfcc.adjust_sub_rsp(v);
 
@@ -248,14 +297,14 @@ void Call_3(JitFuncCreater &jfc) {
 
 	byte &v = jfcc.sub_rsp_unadjusted();
 
-	jfcc.addarg_double(convert_uint64(8.0));
-	jfcc.addarg_int(convert_uint64(7));
-	jfcc.addarg_double(convert_uint64(6.0));
-	jfcc.addarg_int(convert_uint64(5));
-	jfcc.addarg_double(convert_uint64(4.0));
-	jfcc.addarg_int(convert_uint64(3));
-	jfcc.addarg_double(convert_uint64(2.0));
-	jfcc.addarg_int(convert_uint64(1));
+	jfcc.add_double(convert_uint64(8.0));
+	jfcc.add_int(convert_uint64(7));
+	jfcc.add_double(convert_uint64(6.0));
+	jfcc.add_int(convert_uint64(5));
+	jfcc.add_double(convert_uint64(4.0));
+	jfcc.add_int(convert_uint64(3));
+	jfcc.add_double(convert_uint64(2.0));
+	jfcc.add_int(convert_uint64(1));
 
 	jfcc.adjust_sub_rsp(v);
 
@@ -264,28 +313,155 @@ void Call_3(JitFuncCreater &jfc) {
 	jfcc.ret();
 }
 
+struct Point
+{
+	uint64_t x;
+	uint64_t y;
+};
+
+Point *global_p;
+
+void print(uint64_t x)
+{
+	printf("0x%llX ", x);
+}
+
+void print_Point(Point p)
+{
+	//print(p.x);
+	//print(p.y);
+	printf("(0x%llX, 0x%llX)\n", p.x, p.y);
+	p.x++;
+	p.y++;
+}
+
 void print_int(int64 v)
 {
-	printf("%I64X\n", v);
+	printf("0x%I64X\n", v);
+}
+
+uint64_t new_malloc(uint64_t size)
+{
+	return (uint64_t)malloc(size);
+}
+
+void new_free(uint64_t address)
+{
+	free((void*)address);
+}
+
+
+void print_PointX(Point *p)
+{
+	printf("(0x%llX, 0x%llX)\n", p->x, p->y);
+	p->x++;
+	p->y++;
+}
+
+void print_PointN6(Point p0, Point p1, Point p2, Point p3, Point p4, Point p5)
+{
+	print_Point(p0);
+	print_Point(p1);
+	print_Point(p2);
+	print_Point(p3);
+	print_Point(p4);
+	print_Point(p5);
+}
+
+void Call_4X(JitFuncCreater &jfc) {
+	global_p = new Point{ 5, 6 };
+	Point *p = global_p;
+
+	OpCode_x64::sub_rsp(jfc, 0x28);
+
+	OpCode_win64::add_int0(jfc, sizeof(Point));
+	OpCode::call_func(jfc, &new_malloc);
+
+	OpCode_x64::mov_rbx_rax(jfc);
+
+	OpCode_x64::mov_rcx_rax(jfc);
+	OpCode_x64::mov_rdx_uint64(jfc, (uint64_t)global_p);
+	OpCode_x64::mov_r8d_uint32(jfc, sizeof(Point));
+	OpCode::call_func(jfc, &memcpy);
+
+	OpCode_x64::mov_rcx_rax(jfc);
+	OpCode::call_func(jfc, &print_Point);
+
+	OpCode_x64::mov_rcx_rbx(jfc);
+	OpCode::call_func(jfc, &new_free);
+
+	OpCode_x64::add_rsp(jfc, 0x28);
+	OpCode::ret(jfc);
+}
+
+void Call_4(JitFuncCreater &jfc) {
+
+	global_p = new Point{ 0x15, 0x36 };
+
+	const size_t argn = 6;
+
+	JitFuncCallerCreater jfcc(jfc, &print_PointN6, argn);
+
+	jfcc.init_addarg_count(argn, 0);
+
+	uint64_t *p = (uint64_t*)global_p;
+
+	unsigned int count = 0;
+
+	size_t size = sizeof(Point);
+	size_t n = size / 8 + size % 8;
+
+	byte &v = jfcc.sub_rsp_unadjusted();
+
+#if (defined(_WIN64))
+	for (int i = 0; i < argn; ++i) {
+		for (uint64_t *dp = p + n; dp != p; --dp) {
+			jfcc.push(*(dp - 1));
+		}
+	}
+
+	OpCode_x64::mov_rbx_rsp(jfc);
+
+	for (int i = argn; i != 0; --i) {
+		jfcc.add_int_rbx();
+		OpCode_x64::add_rbx(jfc, n * 0x8);
+	}
+#elif (defined(__x86_64__))
+	for (int i = 0; i < argn; ++i) {
+		for (uint64_t *dp = p + n; dp != p; --dp) {
+			jfcc.add_int(*(dp - 1));
+		}
+	}
+#endif
+
+	jfcc.call();
+
+	jfcc.add_rsp();
+
+	jfcc.adjust_sub_rsp(v);
+
+	OpCode::ret(jfc);
 }
 
 void Call_X(JitFuncCreater &jfc)
 {
 	JitFuncCallerCreater jfcc(jfc, &print_int, 1);
 
-	jfcc.sub_rsp();
+	byte &v = jfcc.sub_rsp_unadjusted();
 
-	OpCode_x64::mov_rax_rsp(jfc);
+	OpCode_x64::mov_rbx_rsp(jfc);
 
 #if (defined(_WIN64))
-	OpCode_x64::mov_rcx_rax(jfc);
+	OpCode_win64::add_int0_rbx(jfc);
 #elif (defined(__x86_64__))
-	OpCode_x64::mov_rdi_rax(jfc);
+	OpCode_sysv64::add_int0_rbx(jfc);
 #endif
 
 	jfcc.call();
 
 	jfcc.add_rsp();
+
+	jfcc.adjust_sub_rsp(v);
 
 	jfcc.ret();
 }
@@ -341,9 +517,26 @@ void Call_old(JitFuncCreater &jfc) {
 	//}
 }
 
+using ii = uint64_t;
+
+void callee(ii a, ii b, ii c, ii d, ii e)
+{
+	printf("%d\n", a);
+	printf("%d\n", b);
+	printf("%d\n", c);
+	printf("%d\n", d);
+	printf("%d\n", e);
+}
+
+void callerX()
+{
+	Point p{ 5, 6 };
+	print_Point(p);
+	//callee(1, 2, 3, 4, 0x55555555);
+}
+
 int main(int argc, char *argv[])
 {
-
 	printf("-----------\n");
 	Call(Call_1);
 	printf("-----------\n");
@@ -351,6 +544,9 @@ int main(int argc, char *argv[])
 	printf("-----------\n");
 	Call(Call_3);
 	printf("-----------\n");
+	Call(Call_4);
+	printf("-----------\n");
+	print_Point(*global_p);
 
 	printf("Done.\n");
 
