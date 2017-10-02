@@ -7,6 +7,16 @@
 #include "opcode.h"
 using namespace JitFFI;
 
+template <typename... Args>
+void new_printf(const char *msg, Args... args) {}
+
+template <typename... Args>
+void old_printf(const char *msg, Args... args) {
+	printf(msg, args...);
+}
+
+//#define printf new_printf
+
 using int64 = int64_t;
 
 void print(int64 n)
@@ -222,37 +232,46 @@ void callerNX(int64 a0, double b0, int64 a1, double b1, int64 a2, double b2, int
 
 using CallerProcess = void(JitFuncCreater &jfc);
 
-void Call(CallerProcess *handler)
+auto Compile(CallerProcess *handler, bool use_new_memory = false)
 {
-	static JitFuncPool pool(0x1000, JitFuncPool::ReadOnly);
-	JitFunc jf(pool);
+	static JitFuncPool global_pool(0x1000, JitFuncPool::ReadWrite);
+	JitFuncPool *pool;
 
-	byte *begin;
-	byte *end;
-
-	{
-		JitFuncCreater jfc(jf);
-		handler(jfc);
-
-		begin = jfc.begin();
-		end = jfc.end();
+	if (use_new_memory) {
+		pool = new JitFuncPool(0x1000, JitFuncPool::ReadWrite);
 	}
+	else {
+		pool = &global_pool;
+	}
+
+	JitFunc jf(*pool);
+	JitFuncCreater jfc(jf);
+
+	handler(jfc);
 
 	FILE *file = fopen("tmp.bin", "wb+");
-
-	for (byte *p = begin; p != end; ++p) {
-		fwrite(p, sizeof(byte), 1, file);
-	}
-
+	fwrite(jfc.begin(), sizeof(byte), jfc.end() - jfc.begin(), file);
 	fclose(file);
 
 	system("objdump -D -b binary -m i386:x86-64 tmp.bin");
 
 	printf("\n");
 
-	auto f = jf.func<int(void)>();
+	return jf.func<int(void)>();
+}
 
-	printf("%d\n", f());
+template <typename _FTy>
+void Run(_FTy f)
+{
+	int v = f();
+	printf("%d\n", v);
+}
+
+void Call(CallerProcess *handler)
+{
+	auto f = Compile(handler);
+
+	Run(f);
 }
 
 void Call_1(JitFuncCreater &jfc) {
@@ -274,9 +293,9 @@ void Call_1(JitFuncCreater &jfc) {
 }
 
 void Call_2(JitFuncCreater &jfc) {
-	const unsigned int argn = 6;
+	const unsigned int argn = 10;
 
-	JitFuncCallerCreater jfcc(jfc, &callerN6, argn);
+	JitFuncCallerCreater jfcc(jfc, &callerN10, argn);
 	jfcc.init_addarg_count(argn, 0);
 
 	byte &v = jfcc.sub_rsp_unadjusted();
@@ -396,8 +415,6 @@ void Call_4X(JitFuncCreater &jfc) {
 
 void Call_4(JitFuncCreater &jfc) {
 
-	global_p = new Point{ 0x15, 0x36 };
-
 	const size_t argn = 6;
 
 	JitFuncCallerCreater jfcc(jfc, &print_PointN6, argn);
@@ -410,6 +427,8 @@ void Call_4(JitFuncCreater &jfc) {
 
 	size_t size = sizeof(Point);
 	size_t n = size / 8 + size % 8;
+
+	OpCode_x64::push_rbx(jfc);
 
 	byte &v = jfcc.sub_rsp_unadjusted();
 
@@ -424,7 +443,7 @@ void Call_4(JitFuncCreater &jfc) {
 
 	for (int i = argn; i != 0; --i) {
 		jfcc.add_int_rbx();
-		OpCode_x64::add_rbx(jfc, n * 0x8);
+		OpCode_x64::add_rbx_uint32(jfc, n * 0x8); // !NOTICE! this num may > 1 byte.
 	}
 #elif (defined(__x86_64__))
 	for (int i = 0; i < argn; ++i) {
@@ -439,6 +458,84 @@ void Call_4(JitFuncCreater &jfc) {
 	jfcc.add_rsp();
 
 	jfcc.adjust_sub_rsp(v);
+
+	OpCode_x64::pop_rbx(jfc);
+
+	OpCode::ret(jfc);
+	}
+
+struct PointX3
+{
+	uint64_t x;
+	uint64_t y;
+	uint64_t z;
+};
+
+void print_PointX3(PointX3 p)
+{
+	printf("(%llX, %llX, %llX)\n", p.x, p.y, p.z);
+}
+
+void print_PointX3N6(PointX3 p0, PointX3 p1, PointX3 p2, PointX3 p3, PointX3 p4, PointX3 p5)
+{
+	print_PointX3(p0);
+	print_PointX3(p1);
+	print_PointX3(p2);
+	print_PointX3(p3);
+	print_PointX3(p4);
+	print_PointX3(p5);
+}
+
+
+PointX3 *global_pX;
+
+void Call_5(JitFuncCreater &jfc) {
+
+	const size_t argn = 6;
+
+	JitFuncCallerCreater jfcc(jfc, &print_PointX3N6, argn);
+
+	uint64_t *p = (uint64_t*)global_pX;
+
+	unsigned int count = 0;
+
+	size_t size = sizeof(PointX3);
+	size_t n = size / 8 + size % 8;
+
+	OpCode_x64::push_rbx(jfc);
+
+	byte &v = jfcc.sub_rsp_unadjusted();
+
+#if (defined(_WIN64))
+	for (int i = 0; i < argn; ++i) {
+		for (uint64_t *dp = p + n; dp != p; --dp) {
+			jfcc.push(*(dp - 1));
+		}
+	}
+
+	OpCode_x64::mov_rbx_rsp(jfc);
+
+	for (int i = argn; i != 0; --i) {
+		jfcc.add_int_rbx();
+		OpCode_x64::add_rbx_uint32(jfc, n * 0x8);
+	}
+#elif (defined(__x86_64__))
+
+	uint64_t c = 1;
+	for (int i = 0; i < argn; ++i) {
+		for (uint64_t *dp = p + n; dp != p; --dp) {
+			jfcc.push(c++);
+		}
+	}
+#endif
+
+	jfcc.call();
+
+	jfcc.add_rsp();
+
+	jfcc.adjust_sub_rsp(v);
+
+	OpCode_x64::pop_rbx(jfc);
 
 	OpCode::ret(jfc);
 }
@@ -537,15 +634,23 @@ void callerX()
 
 int main(int argc, char *argv[])
 {
-	printf("-----------\n");
+
+	global_p = new Point{ 0x15, 0x36 };
+	global_pX = new PointX3{ 0x15, 0x36, 0x75 };
+
+	// AOT Usage:
+	//    auto f = Compile(XXX, true);
+	//    Run(f);
+
+	// JIT Usage:
+	//    Call(XXX);
+
 	Call(Call_1);
-	printf("-----------\n");
 	Call(Call_2);
-	printf("-----------\n");
 	Call(Call_3);
-	printf("-----------\n");
 	Call(Call_4);
-	printf("-----------\n");
+	Call(Call_5);
+
 	print_Point(*global_p);
 
 	printf("Done.\n");

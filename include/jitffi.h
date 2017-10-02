@@ -16,7 +16,7 @@ namespace JitFFI
 		};
 
 	public:
-		explicit JitFuncPool(size_t _size, Access access = ReadOnly) :
+		explicit JitFuncPool(size_t _size, Access access = ReadWrite) :
 			_size(_size),
 			data(alloc(_size, access == ReadOnly), [=](void *dp) { free(dp, _size); }) {}
 
@@ -94,12 +94,7 @@ namespace JitFFI
 	{
 		using byte = uint8_t;
 	public:
-		explicit JitFuncCreater(JitFunc &data) : data(data) {
-			data.unprotect();
-		}
-		~JitFuncCreater() {
-			data.protect();
-		}
+		explicit JitFuncCreater(JitFunc &data) : data(data) {}
 
 		void push(byte dat) {
 			assert(count + 1 < data.size());

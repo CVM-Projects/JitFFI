@@ -77,7 +77,7 @@ namespace JitFFI
 	}
 
 	void JitFuncCallerCreater::add_rsp() {
-		OpCode_x64::add_rsp(jfc, get_add_offset());
+		OpCode_x64::add_rsp_uint32(jfc, get_add_offset());  // !NOTICE! this num may > 1 byte.
 	}
 
 	void JitFuncCallerCreater::adjust_sub_rsp(byte &d) {

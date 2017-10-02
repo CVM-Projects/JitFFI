@@ -1,12 +1,12 @@
 # JitFFI
-FFI (Foreign-Function Interface) wit JIT.
+FFI (Foreign-Function Interface) with JIT.
 
 ## Support
 
-Architecture|Operating System|Calling convention |Support
-------------|----------------|-------------------|-------
-x86-64|Windows|Microsoft x64|Partial
-x86-64|Linux|System V AMD64 ABI|Partial
+Architecture|Operating System|Calling convention |Compilers|Support
+------------|----------------|-------------------|---------|-------
+x86-64|Windows|Microsoft x64|MSVC, MinGW|GCCPartial
+x86-64|Linux|System V AMD64 ABI|GCC|Partial
 
 ## Run Example
 

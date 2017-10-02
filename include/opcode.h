@@ -256,6 +256,9 @@ namespace JitFFI
 		inline void push_rbp(JitFuncCreater &jfc) {
 			jfc.push(0x55);
 		}
+		inline void pop_rbx(JitFuncCreater &jfc) {
+			jfc.push(0x5b);
+		}
 		inline void pop_rbp(JitFuncCreater &jfc) {
 			jfc.push(0x5d);
 		}
@@ -285,6 +288,15 @@ namespace JitFFI
 		}
 		inline void sub_rsp(JitFuncCreater &jfc, byte v) {
 			jfc.push(0x48, 0x83, 0xec, v);
+		}
+
+		inline void add_rbx_uint32(JitFuncCreater &jfc, uint32_t dat) {
+			jfc.push(0x48, 0x81, 0xc3);
+			jfc.push_uint32(dat);
+		}
+		inline void add_rsp_uint32(JitFuncCreater &jfc, uint32_t dat) {
+			jfc.push(0x48, 0x81, 0xc4);
+			jfc.push_uint32(dat);
 		}
 
 	}
