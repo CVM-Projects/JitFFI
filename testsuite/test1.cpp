@@ -1,27 +1,12 @@
 // test1.cpp
-// This file can run on the x64 system.
-
-#include <cstdio>
-#include <algorithm>
-#include "jitffi.h"
-#include "opcode.h"
-using namespace JitFFI;
-
-template <typename... Args>
-void new_printf(const char *msg, Args... args) {}
-
-template <typename... Args>
-void old_printf(const char *msg, Args... args) {
-	printf(msg, args...);
-}
-
-//#define printf new_printf
+// This file can run on the x86-64 system.
+#include "testsuite.h"
 
 using int64 = int64_t;
 
 void print(int64 n)
 {
-	printf("0x%llX\n", n);
+	print_num(n);
 }
 
 int callerN2(int64 a, int64 b)
@@ -110,91 +95,91 @@ int callerN10(int64 a, int64 b, int64 c, int64 d, int64 e, int64 f, int64 g, int
 
 int callerX(double a, double b, double c, double d, double e, double f, double g, double h)
 {
-	printf("%lf\n", a);
-	printf("%lf\n", b);
-	printf("%lf\n", c);
-	printf("%lf\n", d);
-	printf("%lf\n", e);
-	printf("%lf\n", f);
-	printf("%lf\n", g);
-	printf("%lf\n", h);
+	print_num(a);
+	print_num(b);
+	print_num(c);
+	print_num(d);
+	print_num(e);
+	print_num(f);
+	print_num(g);
+	print_num(h);
 
 	return 54321;
 }
 
 int callerX4(double a, double b, double c, double d)
 {
-	printf("%lf\n", a);
-	printf("%lf\n", b);
-	printf("%lf\n", c);
-	printf("%lf\n", d);
+	print_num(a);
+	print_num(b);
+	print_num(c);
+	print_num(d);
 
 	return 54321;
 }
 
 int callerX5(double a, double b, double c, double d, double e)
 {
-	printf("%lf\n", a);
-	printf("%lf\n", b);
-	printf("%lf\n", c);
-	printf("%lf\n", d);
-	printf("%lf\n", e);
+	print_num(a);
+	print_num(b);
+	print_num(c);
+	print_num(d);
+	print_num(e);
 
 	return 54321;
 }
 
 int callerX7(double a, double b, double c, double d, double e, double f, double g)
 {
-	printf("%lf\n", a);
-	printf("%lf\n", b);
-	printf("%lf\n", c);
-	printf("%lf\n", d);
-	printf("%lf\n", e);
-	printf("%lf\n", f);
-	printf("%lf\n", g);
+	print_num(a);
+	print_num(b);
+	print_num(c);
+	print_num(d);
+	print_num(e);
+	print_num(f);
+	print_num(g);
 
 	return 54321;
 }
 int callerX8(double a, double b, double c, double d, double e, double f, double g, double h)
 {
-	printf("%lf\n", a);
-	printf("%lf\n", b);
-	printf("%lf\n", c);
-	printf("%lf\n", d);
-	printf("%lf\n", e);
-	printf("%lf\n", f);
-	printf("%lf\n", g);
-	printf("%lf\n", h);
+	print_num(a);
+	print_num(b);
+	print_num(c);
+	print_num(d);
+	print_num(e);
+	print_num(f);
+	print_num(g);
+	print_num(h);
 
 	return 54321;
 }
 int callerX9(double a, double b, double c, double d, double e, double f, double g, double h, double i)
 {
-	printf("%lf\n", a);
-	printf("%lf\n", b);
-	printf("%lf\n", c);
-	printf("%lf\n", d);
-	printf("%lf\n", e);
-	printf("%lf\n", f);
-	printf("%lf\n", g);
-	printf("%lf\n", h);
-	printf("%lf\n", i);
+	print_num(a);
+	print_num(b);
+	print_num(c);
+	print_num(d);
+	print_num(e);
+	print_num(f);
+	print_num(g);
+	print_num(h);
+	print_num(i);
 
 	return 54321;
 }
 
 int callerX10(double a, double b, double c, double d, double e, double f, double g, double h, double i, double j)
 {
-	printf("%lf\n", a);
-	printf("%lf\n", b);
-	printf("%lf\n", c);
-	printf("%lf\n", d);
-	printf("%lf\n", e);
-	printf("%lf\n", f);
-	printf("%lf\n", g);
-	printf("%lf\n", h);
-	printf("%lf\n", i);
-	printf("%lf\n", j);
+	print_num(a);
+	print_num(b);
+	print_num(c);
+	print_num(d);
+	print_num(e);
+	print_num(f);
+	print_num(g);
+	print_num(h);
+	print_num(i);
+	print_num(j);
 
 	return 54321;
 }
@@ -220,58 +205,14 @@ void caller()
 }
 
 void callerNX(int64 a0, double b0, int64 a1, double b1, int64 a2, double b2, int64 a3, double b3) {
-	printf("%lld\n", a0);
-	printf("%lf\n", b0);
-	printf("%lld\n", a1);
-	printf("%lf\n", b1);
-	printf("%lld\n", a2);
-	printf("%lf\n", b2);
-	printf("%lld\n", a3);
-	printf("%lf\n", b3);
-}
-
-using CallerProcess = void(JitFuncCreater &jfc);
-
-auto Compile(CallerProcess *handler, bool use_new_memory = false)
-{
-	static JitFuncPool global_pool(0x1000, JitFuncPool::ReadWrite);
-	JitFuncPool *pool;
-
-	if (use_new_memory) {
-		pool = new JitFuncPool(0x1000, JitFuncPool::ReadWrite);
-	}
-	else {
-		pool = &global_pool;
-	}
-
-	JitFunc jf(*pool);
-	JitFuncCreater jfc(jf);
-
-	handler(jfc);
-
-	FILE *file = fopen("tmp.bin", "wb+");
-	fwrite(jfc.begin(), sizeof(byte), jfc.end() - jfc.begin(), file);
-	fclose(file);
-
-	system("objdump -D -b binary -m i386:x86-64 tmp.bin");
-
-	printf("\n");
-
-	return jf.func<int(void)>();
-}
-
-template <typename _FTy>
-void Run(_FTy f)
-{
-	int v = f();
-	printf("%d\n", v);
-}
-
-void Call(CallerProcess *handler)
-{
-	auto f = Compile(handler);
-
-	Run(f);
+	print_num(a0);
+	print_num(b0);
+	print_num(a1);
+	print_num(b1);
+	print_num(a2);
+	print_num(b2);
+	print_num(a3);
+	print_num(b3);
 }
 
 void Call_1(JitFuncCreater &jfc) {
@@ -391,7 +332,7 @@ void Call_4X(JitFuncCreater &jfc) {
 	global_p = new Point{ 5, 6 };
 	Point *p = global_p;
 
-	OpCode_x64::sub_rsp(jfc, 0x28);
+	OpCode_x64::sub_rsp_byte(jfc, 0x28);
 
 	OpCode_win64::add_int0(jfc, sizeof(Point));
 	OpCode::call_func(jfc, &new_malloc);
@@ -409,7 +350,7 @@ void Call_4X(JitFuncCreater &jfc) {
 	OpCode_x64::mov_rcx_rbx(jfc);
 	OpCode::call_func(jfc, &new_free);
 
-	OpCode_x64::add_rsp(jfc, 0x28);
+	OpCode_x64::add_rsp_byte(jfc, 0x28);
 	OpCode::ret(jfc);
 }
 
@@ -425,8 +366,8 @@ void Call_4(JitFuncCreater &jfc) {
 
 	unsigned int count = 0;
 
-	size_t size = sizeof(Point);
-	size_t n = size / 8 + size % 8;
+	unsigned int size = sizeof(Point);
+	unsigned int n = size / 8 + size % 8;
 
 	OpCode_x64::push_rbx(jfc);
 
@@ -443,7 +384,8 @@ void Call_4(JitFuncCreater &jfc) {
 
 	for (int i = argn; i != 0; --i) {
 		jfcc.add_int_rbx();
-		OpCode_x64::add_rbx_uint32(jfc, n * 0x8); // !NOTICE! this num may > 1 byte.
+		assert(n * 0x8 <= UINT32_MAX && int32_t(n * 0x8) > 0);
+		OpCode_x64::add_rbx_uint32(jfc, n * 0x8);
 	}
 #elif (defined(__x86_64__))
 	for (int i = 0; i < argn; ++i) {
@@ -502,7 +444,7 @@ void Call_5(JitFuncCreater &jfc) {
 	size_t size = sizeof(PointX3);
 	size_t n = size / 8 + size % 8;
 
-	OpCode_x64::push_rbx(jfc);
+	jfcc.push_rbx();
 
 	byte &v = jfcc.sub_rsp_unadjusted();
 
@@ -517,7 +459,7 @@ void Call_5(JitFuncCreater &jfc) {
 
 	for (int i = argn; i != 0; --i) {
 		jfcc.add_int_rbx();
-		OpCode_x64::add_rbx_uint32(jfc, n * 0x8);
+		OpCode_x64::add_rbx_uint32(jfc, n * 0x8); // NOTICE : may > 4 byte
 	}
 #elif (defined(__x86_64__))
 
@@ -535,7 +477,7 @@ void Call_5(JitFuncCreater &jfc) {
 
 	jfcc.adjust_sub_rsp(v);
 
-	OpCode_x64::pop_rbx(jfc);
+	jfcc.pop_rbx();
 
 	OpCode::ret(jfc);
 }
@@ -618,11 +560,11 @@ using ii = uint64_t;
 
 void callee(ii a, ii b, ii c, ii d, ii e)
 {
-	printf("%d\n", a);
-	printf("%d\n", b);
-	printf("%d\n", c);
-	printf("%d\n", d);
-	printf("%d\n", e);
+	print_num(a);
+	print_num(b);
+	print_num(c);
+	print_num(d);
+	print_num(e);
 }
 
 void callerX()
@@ -634,16 +576,8 @@ void callerX()
 
 int main(int argc, char *argv[])
 {
-
 	global_p = new Point{ 0x15, 0x36 };
 	global_pX = new PointX3{ 0x15, 0x36, 0x75 };
-
-	// AOT Usage:
-	//    auto f = Compile(XXX, true);
-	//    Run(f);
-
-	// JIT Usage:
-	//    Call(XXX);
 
 	Call(Call_1);
 	Call(Call_2);

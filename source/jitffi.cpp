@@ -35,7 +35,8 @@ namespace JitFFI
 		BOOL v = VirtualProtect(dp, size, PAGE_EXECUTE_READ, &w);
 		assert(v);
 #else
-		mprotect(dp, size, PROT_READ | PROT_EXEC);
+		int v = mprotect(dp, size, PROT_READ | PROT_EXEC);
+		assert(v == 0);
 #endif
 	}
 
@@ -47,16 +48,19 @@ namespace JitFFI
 		BOOL v = VirtualProtect(dp, size, PAGE_EXECUTE_READWRITE, &w);
 		assert(v);
 #else
-		mprotect(dp, size, PROT_WRITE | PROT_EXEC);
+		int v = mprotect(dp, size, PROT_WRITE | PROT_EXEC);
+		assert(v == 0);
 #endif
 	}
 
 	void JitFuncPool::free(void * dp, size_t size)
 	{
 #if defined(_WIN32)
-		VirtualFreeEx(GetCurrentProcess(), dp, size, MEM_RELEASE);
+		BOOL v = VirtualFree(dp, 0, MEM_RELEASE);
+		assert(v);
 #else
-		munmap(dp, size);
+		int v = munmap(dp, size);
+		assert(v == 0);
 #endif
 	}
 
@@ -67,12 +71,14 @@ namespace JitFFI
 		return (push_count % 2 == 0) ? 0 : 0x8;
 	}
 
-	byte JitFuncCallerCreater::get_add_offset() {
-		return 0x8 + get_offset() + push_count * 0x8;
+	auto JitFuncCallerCreater::get_add_offset() {
+		auto push_offset = push_count * 0x8;
+		assert(push_offset <= UINT32_MAX - 0x10);
+		return 0x8 + get_offset() + push_offset;
 	}
 
 	byte& JitFuncCallerCreater::sub_rsp_unadjusted() {
-		OpCode_x64::sub_rsp(jfc, 0x8);
+		OpCode_x64::sub_rsp_byte(jfc, 0x8);
 		return *(jfc.end() - 1);
 	}
 
@@ -126,13 +132,22 @@ namespace JitFFI
 		push_count += 1;
 	}
 
+	void JitFuncCallerCreater::push_rbx() {
+		OpCode_x64::push_rbx(jfc);
+		OpCode_x64::sub_rsp_byte(jfc, 0x8);
+	}
+	void JitFuncCallerCreater::pop_rbx() {
+		OpCode_x64::add_rsp_byte(jfc, 0x8);
+		OpCode_x64::pop_rbx(jfc);
+	}
+
 	void JitFuncCallerCreater::call() {
 #if (defined(_WIN64))
-		OpCode_x64::sub_rsp(jfc, 0x20);
+		OpCode_x64::sub_rsp_byte(jfc, 0x20);
 #endif
 		OpCode::call_func(jfc, func);
 #if (defined(_WIN64))
-		OpCode_x64::add_rsp(jfc, 0x20);
+		OpCode_x64::add_rsp_byte(jfc, 0x20);
 #endif
 	}
 

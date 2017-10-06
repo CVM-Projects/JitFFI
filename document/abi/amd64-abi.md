@@ -26,7 +26,7 @@ In addition to registers, each function has a frame on the run-time stack. This 
 The end of the input argument area shall be aligned on a 16 byte boundary.
 In other words, the value (%rsp − 8) is always a multiple of 16 when control is transferred to the function entry point. The stack pointer, %rsp, always points to the end of the latest allocated stack frame. [7]
 
-The 128-byte area beyond the location pointed to by %rsp is considered to be reserved and shall not be modified by signal or interrupt handlers.8 Therefore, functions may use this area for temporary data that is not needed across function calls. In particular, leaf functions may use this area for their entire stack frame, rather than adjusting the stack pointer in the prologue and epilogue. This area is known as the red zone.
+The 128-byte area beyond the location pointed to by %rsp is considered to be reserved and shall not be modified by signal or interrupt handlers.[8] Therefore, functions may use this area for temporary data that is not needed across function calls. In particular, leaf functions may use this area for their entire stack frame, rather than adjusting the stack pointer in the prologue and epilogue. This area is known as the red zone.
 
 ***Figure 3.3: Stack Frame with Base Pointer***
 

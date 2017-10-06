@@ -271,23 +271,14 @@ namespace JitFFI
 			jfc.push_uint32(dat);
 		}
 
-		inline void add_rax(JitFuncCreater &jfc, byte v) {
+		inline void add_rax_byte(JitFuncCreater &jfc, byte v) {
 			jfc.push(0x48, 0x83, 0xc0, v);
 		}
-		inline void add_rbx(JitFuncCreater &jfc, byte v) {
+		inline void add_rbx_byte(JitFuncCreater &jfc, byte v) {
 			jfc.push(0x48, 0x83, 0xc3, v);
 		}
-		inline void add_rsp(JitFuncCreater &jfc, byte v) {
+		inline void add_rsp_byte(JitFuncCreater &jfc, byte v) {
 			jfc.push(0x48, 0x83, 0xc4, v);
-		}
-		inline void sub_rax(JitFuncCreater &jfc, byte v) {
-			jfc.push(0x48, 0x83, 0xe8, v);
-		}
-		inline void sub_rbx(JitFuncCreater &jfc, byte v) {
-			jfc.push(0x48, 0x83, 0xeb, v);
-		}
-		inline void sub_rsp(JitFuncCreater &jfc, byte v) {
-			jfc.push(0x48, 0x83, 0xec, v);
 		}
 
 		inline void add_rbx_uint32(JitFuncCreater &jfc, uint32_t dat) {
@@ -297,6 +288,17 @@ namespace JitFFI
 		inline void add_rsp_uint32(JitFuncCreater &jfc, uint32_t dat) {
 			jfc.push(0x48, 0x81, 0xc4);
 			jfc.push_uint32(dat);
+		}
+
+
+		inline void sub_rax_byte(JitFuncCreater &jfc, byte v) {
+			jfc.push(0x48, 0x83, 0xe8, v);
+		}
+		inline void sub_rbx_byte(JitFuncCreater &jfc, byte v) {
+			jfc.push(0x48, 0x83, 0xeb, v);
+		}
+		inline void sub_rsp_byte(JitFuncCreater &jfc, byte v) {
+			jfc.push(0x48, 0x83, 0xec, v);
 		}
 
 	}

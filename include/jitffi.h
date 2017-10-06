@@ -172,8 +172,15 @@ namespace JitFFI
 
 		void push(uint64_t);
 
+		void push_rbx();
+		void pop_rbx();
+
 		void call();
 		void ret();
+
+		JitFuncCreater& data() {
+			return jfc;
+		}
 
 	private:
 		JitFuncCreater &jfc;
@@ -205,7 +212,7 @@ namespace JitFFI
 
 		byte get_offset();
 		byte get_sub_offset();
-		byte get_add_offset();
+		auto get_add_offset();
 
 		using OpHandler = unsigned int(unsigned int);
 
@@ -213,20 +220,43 @@ namespace JitFFI
 		void _add_double(const std::function<OpHandler> &handler);
 	};
 
+	// convert_uintxx:
+	//    This function can convert to a match size integer of value.
+
+	inline uint32_t convert_uint32(const void *dat, size_t n)
+	{
+		if (n == 4) {
+			return *reinterpret_cast<const uint32_t*>(dat);
+		}
+		else if (n == 2) {
+			return *reinterpret_cast<const uint16_t*>(dat);
+		}
+		else if (n == 1) {
+			return *reinterpret_cast<const uint8_t*>(dat);
+		}
+		else {
+			assert(false);
+			return 0xcccccccc;
+		}
+	}
+
+	inline uint64_t convert_uint64(const void *dat, size_t n)
+	{
+		if (n == 8) {
+			return *reinterpret_cast<const uint64_t*>(dat);
+		}
+		else {
+			return convert_uint32(dat, n);
+		}
+	}
+	template <typename T>
+	inline uint64_t convert_uint32(const T &dat)
+	{
+		return convert_uint32(&dat, sizeof(T));
+	}
 	template <typename T>
 	inline uint64_t convert_uint64(const T &dat)
 	{
-		if (sizeof(T) == 8) {
-			return *reinterpret_cast<const uint64_t*>(&dat);
-		}
-		else if (sizeof(T) == 4){
-			return *reinterpret_cast<const uint32_t*>(&dat);
-		}
-		else if (sizeof(T) == 2) {
-			return *reinterpret_cast<const uint16_t*>(&dat);
-		}
-		else if (sizeof(T) == 1) {
-			return *reinterpret_cast<const uint8_t*>(&dat);
-		}
+		return convert_uint64(&dat, sizeof(T));
 	}
 }
