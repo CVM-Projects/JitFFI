@@ -157,8 +157,8 @@ namespace JitFFI
 		using byte = uint8_t;
 	public:
 		template <typename _FTy>
-		JitFuncCallerCreater(JitFuncCreater &jfc, _FTy *func, unsigned int argn)
-			: jfc(jfc), func(reinterpret_cast<void*>(func)), argn(argn) {}
+		JitFuncCallerCreater(JitFuncCreater &jfc, _FTy *func)
+			: jfc(jfc), func(reinterpret_cast<void*>(func)) {}
 
 		void sub_rsp();
 		void add_rsp();
@@ -185,23 +185,28 @@ namespace JitFFI
 	private:
 		JitFuncCreater &jfc;
 		void* func;
-		const unsigned int argn;
 		unsigned int push_count = 0;
+		bool have_init = false;
 
 #if (defined(_WIN64))
+		unsigned int argn;
 		unsigned int add_count = 0;
 
 	public:
-		void init_addarg_count(unsigned int int_c, unsigned int dou_c) {}
+		void init_addarg_count(unsigned int int_c, unsigned int dou_c, unsigned int mem_c = 0) {
+			argn = int_c + dou_c + mem_c;
+			have_init = true;
+		}
 	private:
 #elif (defined(__x86_64__))
 		unsigned int addarg_int_count = 0;
 		unsigned int addarg_double_count = 0;
 
 	public:
-		void init_addarg_count(unsigned int int_c, unsigned int dou_c) {
+		void init_addarg_count(unsigned int int_c, unsigned int dou_c, unsigned int mem_c = 0) {
 			addarg_int_count = int_c;
 			addarg_double_count = dou_c;
+			have_init = true;
 		}
 	private:
 #else

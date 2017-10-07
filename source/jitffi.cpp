@@ -145,6 +145,7 @@ namespace JitFFI
 #if (defined(_WIN64))
 		OpCode_x64::sub_rsp_byte(jfc, 0x20);
 #endif
+		assert(have_init);
 		OpCode::call_func(jfc, func);
 #if (defined(_WIN64))
 		OpCode_x64::add_rsp_byte(jfc, 0x20);

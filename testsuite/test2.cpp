@@ -6,7 +6,7 @@ typedef struct {
 	uint8_t d0;
 } type1;
 
-void print_struct0(type1 t)
+void print_struct1(type1 t)
 {
 	print(t.d0);
 }
@@ -16,7 +16,7 @@ typedef struct {
 	double d1;
 } type2;
 
-void print_struct1(type2 t)
+void print_struct2(type2 t)
 {
 	print(t.d0);
 	print(t.d1);
@@ -28,7 +28,20 @@ typedef struct {
 	uint32_t d2;
 } type3;
 
-void print_struct2(type3 t)
+void print_struct3(type3 t)
+{
+	print(t.d0);
+	print(t.d1);
+	print(t.d2);
+}
+
+typedef struct {
+	uint8_t d0;
+	uint8_t d1;
+	double d2;
+} type4;
+
+void print_struct4(type4 t)
 {
 	print(t.d0);
 	print(t.d1);
@@ -39,6 +52,7 @@ enum ArgType
 {
 	AT_Int,
 	AT_Double,
+	AT_Memory,
 };
 
 struct TypeListUnit
@@ -58,6 +72,8 @@ void pass_struct(JitFuncCallerCreater &jfcc, void *t, size_t size, const TypeLis
 {
 #if (defined(_WIN64))
 	if (need_pass_by_pointer(size)) {
+		jfcc.init_addarg_count(0, 0, 1);
+
 		push_copy(jfcc, t, size);
 
 		OpCode_x64::mov_rbx_rsp(jfcc.data());
@@ -65,10 +81,14 @@ void pass_struct(JitFuncCallerCreater &jfcc, void *t, size_t size, const TypeLis
 		jfcc.add_int_rbx();
 	}
 	else {
+		jfcc.init_addarg_count(1, 0, 0);
+
 		jfcc.add_int(convert_uint64(t, size));
 	}
 #elif (defined(__x86_64__))
 	if (need_pass_by_memory(size)) {
+		jfcc.init_addarg_count(0, 0, 1);
+
 		for (uint i = typelist.num; i != 0; --i) {
 			auto &e = typelist.data[i - 1];
 			jfcc.push(convert_uint64(t + e.post, e.size));
@@ -91,6 +111,7 @@ void pass_struct(JitFuncCallerCreater &jfcc, void *t, size_t size, const TypeLis
 		}
 
 		jfcc.init_addarg_count(int_count, double_count);
+
 		for (uint i = typelist.num; i != 0; --i) {
 			auto &e = typelist.data[i - 1];
 			switch (e.type) {
@@ -129,7 +150,7 @@ void Call_SX(JitFuncCallerCreater &jfcc, CallFunc f)
 
 void Call_1(JitFuncCreater &jfc)
 {
-	JitFuncCallerCreater jfcc(jfc, &print_struct0, 1);
+	JitFuncCallerCreater jfcc(jfc, &print_struct1);
 
 	auto f = [](JitFuncCallerCreater &jfcc) {
 		auto size = sizeof(type1);
@@ -148,12 +169,12 @@ void Call_1(JitFuncCreater &jfc)
 
 void Call_2(JitFuncCreater &jfc)
 {
-	JitFuncCallerCreater jfcc(jfc, &print_struct1, 1);
+	JitFuncCallerCreater jfcc(jfc, &print_struct2);
 
 	auto f = [](JitFuncCallerCreater &jfcc) {
 		auto size = sizeof(type2);
 
-		type2 t{ 1, 2 };
+		type2 t{ 1, 2.5789763 };
 
 		TypeListUnit typelist[] = {
 			{ (uint)((byte*)&t.d0 - (byte*)&t), sizeof(t.d0), AT_Int },
@@ -168,12 +189,12 @@ void Call_2(JitFuncCreater &jfc)
 
 void Call_3(JitFuncCreater &jfc)
 {
-	JitFuncCallerCreater jfcc(jfc, &print_struct2, 1);
+	JitFuncCallerCreater jfcc(jfc, &print_struct3);
 
 	auto f = [](JitFuncCallerCreater &jfcc) {
 		size_t size = sizeof(type3);
 
-		type3 t = { 1, 2, 3 };
+		type3 t = { 1, 2.5789763, 3 };
 
 		TypeListUnit typelist[] = {
 			{ (uint)((byte*)&t.d0 - (byte*)&t), sizeof(t.d0), AT_Int },

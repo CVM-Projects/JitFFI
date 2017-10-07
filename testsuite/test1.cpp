@@ -218,7 +218,7 @@ void callerNX(int64 a0, double b0, int64 a1, double b1, int64 a2, double b2, int
 void Call_1(JitFuncCreater &jfc) {
 	const unsigned int argn = 4;
 
-	JitFuncCallerCreater jfcc(jfc, &callerX4, argn);
+	JitFuncCallerCreater jfcc(jfc, &callerX4);
 	jfcc.init_addarg_count(0, argn);
 
 	byte &v = jfcc.sub_rsp_unadjusted();
@@ -236,7 +236,7 @@ void Call_1(JitFuncCreater &jfc) {
 void Call_2(JitFuncCreater &jfc) {
 	const unsigned int argn = 10;
 
-	JitFuncCallerCreater jfcc(jfc, &callerN10, argn);
+	JitFuncCallerCreater jfcc(jfc, &callerN10);
 	jfcc.init_addarg_count(argn, 0);
 
 	byte &v = jfcc.sub_rsp_unadjusted();
@@ -252,7 +252,7 @@ void Call_2(JitFuncCreater &jfc) {
 }
 
 void Call_3(JitFuncCreater &jfc) {
-	JitFuncCallerCreater jfcc(jfc, &callerNX, 8);
+	JitFuncCallerCreater jfcc(jfc, &callerNX);
 	jfcc.init_addarg_count(4, 4);
 
 	byte &v = jfcc.sub_rsp_unadjusted();
@@ -358,7 +358,7 @@ void Call_4(JitFuncCreater &jfc) {
 
 	const size_t argn = 6;
 
-	JitFuncCallerCreater jfcc(jfc, &print_PointN6, argn);
+	JitFuncCallerCreater jfcc(jfc, &print_PointN6);
 
 	jfcc.init_addarg_count(argn, 0);
 
@@ -435,7 +435,9 @@ void Call_5(JitFuncCreater &jfc) {
 
 	const size_t argn = 6;
 
-	JitFuncCallerCreater jfcc(jfc, &print_PointX3N6, argn);
+	JitFuncCallerCreater jfcc(jfc, &print_PointX3N6);
+
+	jfcc.init_addarg_count(0, 0, argn);
 
 	uint64_t *p = (uint64_t*)global_pX;
 
@@ -484,7 +486,9 @@ void Call_5(JitFuncCreater &jfc) {
 
 void Call_X(JitFuncCreater &jfc)
 {
-	JitFuncCallerCreater jfcc(jfc, &print_int, 1);
+	JitFuncCallerCreater jfcc(jfc, &print_int);
+
+	jfcc.init_addarg_count(1, 0, 0);
 
 	byte &v = jfcc.sub_rsp_unadjusted();
 
