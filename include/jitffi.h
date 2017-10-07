@@ -211,7 +211,7 @@ namespace JitFFI
 	private:
 #else
 	public:
-		void init_addarg_count(unsigned int int_c, unsigned int dou_c) {}
+		void init_addarg_count(unsigned int int_c, unsigned int dou_c, unsigned int mem_c = 0) {}
 	private:
 #endif
 

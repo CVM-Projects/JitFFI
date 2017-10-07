@@ -132,6 +132,9 @@ namespace JitFFI
 		inline void mov_rbx_rsp(JitFuncCreater &jfc) {
 			jfc.push(0x48, 0x89, 0xe3);
 		}
+		inline void mov_rcx_rdi(JitFuncCreater &jfc) {
+			jfc.push(0x48, 0x89, 0xf9);
+		}
 		inline void mov_rax_prsp(JitFuncCreater &jfc, byte offset) {
 			jfc.push(0x48, 0x8b, 0x44, 0x24);
 			jfc.push(offset);
