@@ -83,32 +83,3 @@ inline void Call(CallerProcess *handler)
 
 	Run(f);
 }
-
-#if (defined(_WIN64))
-inline bool need_pass_by_pointer(size_t n) {
-	return (n != 1 && n != 2 && n != 4 && n != 8);
-}
-inline void push_copy(JitFuncCallerCreater &jfcc, const void *tp, size_t size) {
-	unsigned int n = size / 8 + size % 8;
-	const uint64_t *p = reinterpret_cast<const uint64_t*>(tp);
-
-	for (const uint64_t *dp = p + n; dp != p; --dp) {
-		jfcc.push(*(dp - 1));
-	}
-}
-#elif (defined(__x86_64__))
-enum PassType
-{
-	PT_Integer,
-	PT_SSE,
-	PT_SSEUP,
-	PT_X87,
-	PT_Memory,
-};
-inline bool need_pass_by_memory(size_t n) {
-	if (n > 16)
-		return true;
-	else
-		return false;
-}
-#endif

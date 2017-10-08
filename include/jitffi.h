@@ -157,73 +157,109 @@ namespace JitFFI
 		using byte = uint8_t;
 	public:
 		template <typename _FTy>
-		JitFuncCallerCreater(JitFuncCreater &jfc, _FTy *func)
+		explicit JitFuncCallerCreater(JitFuncCreater &jfc, _FTy *func = nullptr)
 			: jfc(jfc), func(reinterpret_cast<void*>(func)) {}
+
+		virtual ~JitFuncCallerCreater() = default;
 
 		void sub_rsp();
 		void add_rsp();
 		byte& sub_rsp_unadjusted();
 		void adjust_sub_rsp(byte &d);
 
-		void add_int(uint64_t dat);
-		void add_int_uint32(uint32_t dat);
-		void add_int_rbx();
-		void add_double(uint64_t dat);
+		template <typename _FTy> void init_func(_FTy *fp) { func = fp; }
+		virtual void init_addarg_count(unsigned int int_c, unsigned int dou_c, unsigned int mem_c = 0) = 0;
+
+		virtual void add_int(uint64_t dat) = 0;
+		virtual void add_int_uint32(uint32_t dat) = 0;
+		virtual void add_int_rbx() = 0;
+		virtual void add_double(uint64_t dat) = 0;
 
 		void push(uint64_t);
 
 		void push_rbx();
 		void pop_rbx();
 
-		void call();
+		virtual void call() = 0;
 		void ret();
 
 		JitFuncCreater& data() {
 			return jfc;
 		}
 
-	private:
+	protected:
 		JitFuncCreater &jfc;
 		void* func;
 		unsigned int push_count = 0;
 		bool have_init = false;
-
-#if (defined(_WIN64))
-		unsigned int argn;
-		unsigned int add_count = 0;
-
-	public:
-		void init_addarg_count(unsigned int int_c, unsigned int dou_c, unsigned int mem_c = 0) {
-			argn = int_c + dou_c + mem_c;
-			have_init = true;
-		}
-	private:
-#elif (defined(__x86_64__))
-		unsigned int addarg_int_count = 0;
-		unsigned int addarg_double_count = 0;
-
-	public:
-		void init_addarg_count(unsigned int int_c, unsigned int dou_c, unsigned int mem_c = 0) {
-			addarg_int_count = int_c;
-			addarg_double_count = dou_c;
-			have_init = true;
-		}
-	private:
-#else
-	public:
-		void init_addarg_count(unsigned int int_c, unsigned int dou_c, unsigned int mem_c = 0) {}
-	private:
-#endif
 
 		byte get_offset();
 		byte get_sub_offset();
 		auto get_add_offset();
 
 		using OpHandler = unsigned int(unsigned int);
-
-		void _add_int(const std::function<OpHandler> &handler);
-		void _add_double(const std::function<OpHandler> &handler);
 	};
+
+	namespace MS64
+	{
+		class JitFuncCallerCreaterPlatform : public JitFuncCallerCreater
+		{
+		public:
+			template <typename _FTy>
+			explicit JitFuncCallerCreaterPlatform(JitFuncCreater &jfc, _FTy *func = nullptr)
+				: JitFuncCallerCreater(jfc, func) {}
+
+			void init_addarg_count(unsigned int int_c, unsigned int dou_c, unsigned int mem_c = 0) {
+				argn = int_c + dou_c + mem_c;
+				have_init = true;
+			}
+
+			void add_int(uint64_t dat);
+			void add_int_uint32(uint32_t dat);
+			void add_int_rbx();
+			void add_double(uint64_t dat);
+
+			void call();
+
+		private:
+			void _add_int(const std::function<OpHandler> &handler);
+			void _add_double(const std::function<OpHandler> &handler);
+
+			unsigned int argn;
+			unsigned int add_count = 0;
+		};
+	}
+
+	namespace SysV64
+	{
+		class JitFuncCallerCreaterPlatform : public JitFuncCallerCreater
+		{
+		public:
+			template <typename _FTy>
+			explicit JitFuncCallerCreaterPlatform(JitFuncCreater &jfc, _FTy *func = nullptr)
+				: JitFuncCallerCreater(jfc, func) {}
+
+			void init_addarg_count(unsigned int int_c, unsigned int dou_c, unsigned int mem_c = 0) {
+				addarg_int_count = int_c;
+				addarg_double_count = dou_c;
+				have_init = true;
+			}
+
+			void add_int(uint64_t dat);
+			void add_int_uint32(uint32_t dat);
+			void add_int_rbx();
+			void add_double(uint64_t dat);
+
+			void call();
+
+		private:
+			void _add_int(const std::function<OpHandler> &handler);
+			void _add_double(const std::function<OpHandler> &handler);
+
+			unsigned int addarg_int_count = 0;
+			unsigned int addarg_double_count = 0;
+		};
+	}
 
 	// convert_uintxx:
 	//    This function can convert to a match size integer of value.
@@ -265,3 +301,110 @@ namespace JitFFI
 		return convert_uint64(&dat, sizeof(T));
 	}
 }
+
+namespace JitFFI
+{
+	namespace MS64
+	{
+		inline bool need_pass_by_pointer(size_t n) {
+			return (n != 1 && n != 2 && n != 4 && n != 8);
+		}
+		inline void push_copy(JitFuncCallerCreater &jfcc, const void *tp, size_t size) {
+			unsigned int n = static_cast<unsigned int>(size / 8 + size % 8);
+			const uint64_t *p = reinterpret_cast<const uint64_t*>(tp);
+
+			for (const uint64_t *dp = p + n; dp != p; --dp) {
+				jfcc.push(*(dp - 1));
+			}
+		}
+	}
+
+	namespace SysV64
+	{
+		enum PassType
+		{
+			PT_Integer,
+			PT_SSE,
+			PT_SSEUP,
+			PT_X87,
+			PT_Memory,
+		};
+		inline bool need_pass_by_memory(size_t n) {
+			if (n > 16)
+				return true;
+			else
+				return false;
+		}
+	}
+}
+
+namespace JitFFI
+{
+	using byte = uint8_t;
+
+	enum ArgType
+	{
+		AT_Unknown,
+		AT_Int,
+		AT_Double,
+		AT_Memory,
+	};
+
+	struct TypeListUnit
+	{
+		unsigned int post;
+		unsigned int size;
+		ArgType type;
+	};
+
+	struct TypeList
+	{
+		unsigned int num;
+		TypeListUnit *data;
+	};
+
+	class NewStruct
+	{
+	public:
+		bool push(byte *dat, unsigned int size);
+
+		void write_uint32(unsigned int i, byte *dat) {
+			((uint32_t*)&_data)[i] = *(uint32_t*)dat;
+		}
+		void write_uint16(unsigned int i, byte *dat) {
+			((uint16_t*)&_data)[i] = *(uint16_t*)dat;
+		}
+		void write_byte(unsigned int i, byte *dat) {
+			((byte*)&_data)[i] = *dat;
+		}
+
+		void clear() {
+			count = 0;
+			_data = 0;
+		}
+
+		uint64_t data() const {
+			return _data;
+		}
+
+	private:
+		unsigned int count = 0;
+		uint64_t _data = 0;
+	};
+
+	namespace MS64
+	{
+		void pass_struct(JitFuncCallerCreater &jfcc, void *t, size_t size, const TypeList &typelist);
+	}
+
+	namespace SysV64
+	{
+		void pass_struct(JitFuncCallerCreater &jfcc, void *t, size_t size, const TypeList &typelist);
+	}
+}
+
+#if (defined (_WIN64))
+#	define CurrABI MS64
+#elif (defined (__x86_64__))
+#	define CurrABI SysV64
+#endif

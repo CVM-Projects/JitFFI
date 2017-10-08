@@ -218,7 +218,9 @@ void callerNX(int64 a0, double b0, int64 a1, double b1, int64 a2, double b2, int
 void Call_1(JitFuncCreater &jfc) {
 	const unsigned int argn = 4;
 
-	JitFuncCallerCreater jfcc(jfc, &callerX4);
+	using namespace JitFFI::CurrABI;
+
+	JitFuncCallerCreaterPlatform jfcc(jfc, &callerX4);
 	jfcc.init_addarg_count(0, argn);
 
 	byte &v = jfcc.sub_rsp_unadjusted();
@@ -236,7 +238,9 @@ void Call_1(JitFuncCreater &jfc) {
 void Call_2(JitFuncCreater &jfc) {
 	const unsigned int argn = 10;
 
-	JitFuncCallerCreater jfcc(jfc, &callerN10);
+	using namespace JitFFI::CurrABI;
+
+	JitFuncCallerCreaterPlatform jfcc(jfc, &callerN10);
 	jfcc.init_addarg_count(argn, 0);
 
 	byte &v = jfcc.sub_rsp_unadjusted();
@@ -252,7 +256,10 @@ void Call_2(JitFuncCreater &jfc) {
 }
 
 void Call_3(JitFuncCreater &jfc) {
-	JitFuncCallerCreater jfcc(jfc, &callerNX);
+
+	using namespace JitFFI::CurrABI;
+
+	JitFuncCallerCreaterPlatform jfcc(jfc, &callerNX);
 	jfcc.init_addarg_count(4, 4);
 
 	byte &v = jfcc.sub_rsp_unadjusted();
@@ -358,7 +365,9 @@ void Call_4(JitFuncCreater &jfc) {
 
 	const size_t argn = 6;
 
-	JitFuncCallerCreater jfcc(jfc, &print_PointN6);
+	using namespace JitFFI::CurrABI;
+
+	JitFuncCallerCreaterPlatform jfcc(jfc, &print_PointN6);
 
 	jfcc.init_addarg_count(argn, 0);
 
@@ -435,7 +444,9 @@ void Call_5(JitFuncCreater &jfc) {
 
 	const size_t argn = 6;
 
-	JitFuncCallerCreater jfcc(jfc, &print_PointX3N6);
+	using namespace JitFFI::CurrABI;
+
+	JitFuncCallerCreaterPlatform jfcc(jfc, &print_PointX3N6);
 
 	jfcc.init_addarg_count(0, 0, argn);
 
@@ -482,82 +493,6 @@ void Call_5(JitFuncCreater &jfc) {
 	jfcc.pop_rbx();
 
 	OpCode::ret(jfc);
-}
-
-void Call_X(JitFuncCreater &jfc)
-{
-	JitFuncCallerCreater jfcc(jfc, &print_int);
-
-	jfcc.init_addarg_count(1, 0, 0);
-
-	byte &v = jfcc.sub_rsp_unadjusted();
-
-	OpCode_x64::mov_rbx_rsp(jfc);
-
-#if (defined(_WIN64))
-	OpCode_win64::add_int0_rbx(jfc);
-#elif (defined(__x86_64__))
-	OpCode_sysv64::add_int0_rbx(jfc);
-#endif
-
-	jfcc.call();
-
-	jfcc.add_rsp();
-
-	jfcc.adjust_sub_rsp(v);
-
-	jfcc.ret();
-}
-
-void Call_old(JitFuncCreater &jfc) {
-
-	/*{
-	JitFuncCreater jfc(jf);
-
-	OpCode_win64::sub_rsp(jfc);
-
-	OpCode_win64::add_intx(jfc, 8, 3);
-	OpCode_win64::add_intx(jfc, 7, 2);
-	OpCode_win64::add_intx(jfc, 6, 1);
-	OpCode_win64::add_intx(jfc, 5, 0);
-	OpCode_win64::add_int3(jfc, 4);
-	OpCode_win64::add_int2(jfc, 3);
-	OpCode_win64::add_int1(jfc, 2);
-	OpCode_win64::add_int0(jfc, 1);
-
-	OpCode::call_func(jfc, &caller);
-
-	OpCode_win64::add_rsp(jfc);
-	OpCode_win64::ret(jfc);
-	}*/
-
-	//{
-	//	JitFuncCreater jfc(jf);
-
-	//	//OpCode::push_ebp(jfc);
-	//	//OpCode::mov_ebp_esp(jfc);
-
-	//	//OpCode::push_uint64(jfc, 5);
-	//	//OpCode::push_uint64(jfc, 6);
-
-	//	//OpCode::push_uint64(jfc, 6);
-	//	//OpCode::push_uint64(jfc, 6);
-	//	//OpCode::push_uint64(jfc, 0);
-
-	//	OpCode::push_byte(jfc, 0);
-	//	OpCode::push_byte(jfc, 6);
-	//	OpCode::push_byte(jfc, 5);
-
-	//	//OpCode::mov_erax(jfc, 5);
-	//	//OpCode::mov_erax(jfc, 6);
-
-	//	OpCode::call_func(jfc, &print_pointx);
-
-
-	//	//OpCode::pop_ebp(jfc);
-	//	OpCode::leave(jfc);
-	//	OpCode::ret(jfc);        // ret
-	//}
 }
 
 using ii = uint64_t;
