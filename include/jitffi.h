@@ -386,6 +386,9 @@ namespace JitFFI
 		TypeDataList typedata;
 	};
 
+	using ArgDataList = std::list<void*>;
+	using ArgTypeList = std::list<const ArgTypeUnit*>;
+
 	class NewStruct
 	{
 	public:
@@ -440,8 +443,8 @@ namespace JitFFI
 			}
 			unsigned int push_memory(void *dat, size_t size) {
 				assert(size < UINT32_MAX);
-				unsigned int count = size / 8;
-				unsigned int remsize = size % 8;
+				unsigned int count = static_cast<unsigned int>(size / 8);
+				unsigned int remsize = static_cast<unsigned int>(size % 8);
 
 				uint64_t *dp = reinterpret_cast<uint64_t*>(dat);
 
@@ -483,8 +486,9 @@ namespace JitFFI
 				}
 			}
 
-			size_t size() const {
-				return list.size();
+			unsigned int size() const {
+				assert(list.size() < UINT32_MAX);
+				return static_cast<unsigned int>(list.size());
 			}
 
 		private:
@@ -492,9 +496,10 @@ namespace JitFFI
 			std::list<uint64_t> memlist;
 		};
 
+		void push_data(ArgumentList &list, void *t, const ArgTypeUnit &atu);
 		void add_argument(JitFuncCallerCreater &jfcc, ArgumentList &list);
-		void push_data(ArgumentList &list, ArgType type, uint64_t data);
-		void push_struct_data(ArgumentList &list, void *t, const ArgTypeUnit &atu);
+
+		// Will be deleted.
 		void pass_struct(JitFuncCallerCreater &jfcc, void *t, size_t size, const TypeList &typelist);
 	}
 
@@ -551,12 +556,88 @@ namespace JitFFI
 			unsigned int _memory_count = 0;
 		};
 
-		void push_data(ArgumentList &list, ArgType type, uint64_t data);
+		void push_data(ArgumentList &list, void *t, const ArgTypeUnit &atu);
 		void add_argument(JitFuncCallerCreater &jfcc, ArgumentList &list);
+
+		// Will be deleted.
 		void push_struct_data(ArgumentList &list, void *t, size_t size, const TypeList &typelist);
-		void push_struct_data(ArgumentList &list, void *t, const ArgTypeUnit &atu);
 		void pass_struct(JitFuncCallerCreater &jfcc, void *t, size_t size, const TypeList &typelist);
 	}
+}
+
+namespace JitFFI
+{
+	namespace SysV64
+	{
+		void create_function_caller(JitFuncCreater &jfc, ArgumentList &list, void *func);
+		void create_function_caller(JitFuncCreater &jfc, void *func, const ArgDataList &adlist, const ArgTypeList &atlist);
+
+		template <typename _FTy>
+		void create_function_caller(JitFuncCreater &jfc, ArgumentList &list, _FTy *func)
+		{
+			create_function_caller(jfc, list, (void*)func);
+		}
+		template <typename _FTy>
+		void create_function_caller(JitFuncCreater &jfc, _FTy *func, const ArgDataList &adlist, const ArgTypeList &atlist)
+		{
+			create_function_caller(jfc, (void*)func, adlist, atlist);
+		}
+	}
+	namespace MS64
+	{
+		void create_function_caller(JitFuncCreater &jfc, ArgumentList &list, void *func);
+		void create_function_caller(JitFuncCreater &jfc, void *func, const ArgDataList &adlist, const ArgTypeList &atlist);
+
+		template <typename _FTy>
+		void create_function_caller(JitFuncCreater &jfc, ArgumentList &list, _FTy *func)
+		{
+			create_function_caller(jfc, list, (void*)func);
+		}
+		template <typename _FTy>
+		void create_function_caller(JitFuncCreater &jfc, _FTy *func, const ArgDataList &adlist, const ArgTypeList &atlist)
+		{
+			create_function_caller(jfc, (void*)func, adlist, atlist);
+		}
+	}
+}
+
+namespace JitFFI
+{
+	extern const ArgTypeUnit atu_bool;
+
+	extern const ArgTypeUnit atu_char;
+	extern const ArgTypeUnit atu_schar;
+	extern const ArgTypeUnit atu_uchar;
+	extern const ArgTypeUnit atu_wchar;
+
+	extern const ArgTypeUnit atu_int;
+	extern const ArgTypeUnit atu_lint;
+	extern const ArgTypeUnit atu_llint;
+	extern const ArgTypeUnit atu_sint;
+
+	extern const ArgTypeUnit atu_uint;
+	extern const ArgTypeUnit atu_ulint;
+	extern const ArgTypeUnit atu_ullint;
+	extern const ArgTypeUnit atu_usint;
+
+	extern const ArgTypeUnit atu_float;
+	extern const ArgTypeUnit atu_double;
+
+	extern const ArgTypeUnit atu_ldouble;
+
+	extern const ArgTypeUnit atu_pointer;
+
+	extern const ArgTypeUnit atu_size;
+
+	extern const ArgTypeUnit atu_int8;
+	extern const ArgTypeUnit atu_int16;
+	extern const ArgTypeUnit atu_int32;
+	extern const ArgTypeUnit atu_int64;
+
+	extern const ArgTypeUnit atu_uint8;
+	extern const ArgTypeUnit atu_uint16;
+	extern const ArgTypeUnit atu_uint32;
+	extern const ArgTypeUnit atu_uint64;
 }
 
 #if (defined (_WIN64))

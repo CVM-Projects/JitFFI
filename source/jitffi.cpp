@@ -264,20 +264,34 @@ namespace JitFFI
 {
 	namespace MS64
 	{
-
-		void push_data(ArgumentList &list, void *t, const ArgTypeUnit &atu) {
-
+		void push_struct_data_base(ArgumentList &list, void *t, const ArgTypeUnit &atu) {
+			unsigned int offset = list.push_memory(t, atu.size);
+			list.push(AT_Memory, offset);
 		}
 
 		void push_struct_data(ArgumentList &list, void *t, const ArgTypeUnit &atu) {
-			size_t size = atu.size;
-
-			if (need_pass_by_pointer(size)) {
-				unsigned int offset = list.push_memory(t, size);
-				list.push(AT_Memory, offset);
+			if (need_pass_by_pointer(atu.size)) {
+				push_struct_data_base(list, t, atu);
 			}
 			else {
-				list.push(atu.type, convert_uint64(t, size));
+				list.push(atu.type, convert_uint64(t, atu.size));
+			}
+		}
+
+		void push_data(ArgumentList &list, void *t, const ArgTypeUnit &atu) {
+			switch (atu.type) {
+			case AT_Unknown:
+				push_struct_data(list, t, atu);
+				break;
+			case AT_Memory:
+				push_struct_data_base(list, t, atu);
+				break;
+			case AT_Int:
+			case AT_Float:
+				list.push(atu.type, convert_uint64(t, atu.size));
+				break;
+			default:
+				assert(false);
 			}
 		}
 
@@ -303,7 +317,8 @@ namespace JitFFI
 					break;
 				case AT_Memory:
 					jfcc.add_int_rbx();
-					jfcc.sub_rbx(data * 8);
+					assert(data * 8 < UINT32_MAX);
+					jfcc.sub_rbx(static_cast<uint32_t>(data * 8));
 					break;
 				default:
 					assert(false);
@@ -319,8 +334,21 @@ namespace JitFFI
 			return std::shared_ptr<ArgumentList>(new ArgumentList());
 		}
 
-		void push_data(ArgumentList &list, ArgType type, uint64_t data) {
-			list.push(type, data);
+		void push_struct_data(ArgumentList &list, void *t, const ArgTypeUnit &atu);
+
+		void push_data(ArgumentList &list, void *t, const ArgTypeUnit &atu) {
+			switch (atu.type) {
+			case AT_Unknown:
+			case AT_Memory:
+				push_struct_data(list, t, atu);
+				break;
+			case AT_Int:
+			case AT_Float:
+				list.push(atu.type, convert_uint64(t, atu.size));
+				break;
+			default:
+				assert(false);
+			}
 		}
 
 		void push_struct_data(ArgumentList &list, void *t, const ArgTypeUnit &atu)
@@ -368,6 +396,9 @@ namespace JitFFI
 						break;
 					case AT_Memory:
 						c_type = AT_Memory;
+						break;
+					default:
+						assert(false);
 					}
 				}
 			}
@@ -421,6 +452,9 @@ namespace JitFFI
 						break;
 					case AT_Memory:
 						c_type = AT_Memory;
+						break;
+					default:
+						assert(false);
 					}
 				}
 			}
@@ -478,3 +512,111 @@ namespace JitFFI
 	}
 }
 
+namespace JitFFI
+{
+	template <typename ArgumentList, typename JitFuncCallerCreaterPlatform>
+	void create_function_caller_base(JitFuncCreater &jfc, ArgumentList &list, void *func)
+	{
+		JitFuncCallerCreaterPlatform jfcc(jfc, func);
+		jfcc.push_rbx();
+		byte &v = jfcc.sub_rsp_unadjusted();
+
+		add_argument(jfcc, list);
+
+		jfcc.call();
+
+		jfcc.add_rsp();
+		jfcc.adjust_sub_rsp(v);
+		jfcc.pop_rbx();
+		jfcc.ret();
+	}
+
+	template <typename ArgumentList, typename JitFuncCallerCreaterPlatform>
+	void create_function_caller_base(JitFuncCreater &jfc, void *func, const ArgDataList &adlist, const ArgTypeList &atlist)
+	{
+		ArgumentList list;
+
+		assert(adlist.size() == atlist.size());
+		assert(adlist.size() < UINT32_MAX);
+
+		size_t count = adlist.size();
+
+		auto ad_iter = adlist.begin();
+		auto at_iter = atlist.begin();
+
+		while (count--) {
+			push_data(list, *ad_iter, **at_iter);
+
+			++ad_iter;
+			++at_iter;
+		}
+
+		create_function_caller_base<ArgumentList, JitFuncCallerCreaterPlatform>(jfc, list, func);
+	}
+
+	namespace SysV64
+	{
+		void create_function_caller(JitFuncCreater &jfc, ArgumentList &list, void *func)
+		{
+			create_function_caller_base<ArgumentList, JitFuncCallerCreaterPlatform>(jfc, list, func);
+		}
+		void create_function_caller(JitFuncCreater &jfc, void *func, const ArgDataList &adlist, const ArgTypeList &atlist)
+		{
+			create_function_caller_base<ArgumentList, JitFuncCallerCreaterPlatform>(jfc, func, adlist, atlist);
+		}
+	}
+	namespace MS64
+	{
+		void create_function_caller(JitFuncCreater &jfc, ArgumentList &list, void *func)
+		{
+			create_function_caller_base<ArgumentList, JitFuncCallerCreaterPlatform>(jfc, list, func);
+		}
+		void create_function_caller(JitFuncCreater &jfc, void *func, const ArgDataList &adlist, const ArgTypeList &atlist)
+		{
+			create_function_caller_base<ArgumentList, JitFuncCallerCreaterPlatform>(jfc, func, adlist, atlist);
+		}
+	}
+}
+
+namespace JitFFI
+{
+	const ArgTypeUnit atu_bool(AT_Int, sizeof(bool));
+
+	const ArgTypeUnit atu_char(AT_Int, sizeof(char));
+	const ArgTypeUnit atu_schar(AT_Int, sizeof(signed char));
+	const ArgTypeUnit atu_uchar(AT_Int, sizeof(unsigned char));
+	const ArgTypeUnit atu_wchar(AT_Int, sizeof(wchar_t));
+
+	const ArgTypeUnit atu_int(AT_Int, sizeof(int));
+	const ArgTypeUnit atu_lint(AT_Int, sizeof(long int));
+	const ArgTypeUnit atu_llint(AT_Int, sizeof(long long int));
+	const ArgTypeUnit atu_sint(AT_Int, sizeof(short int));
+
+	const ArgTypeUnit atu_uint(AT_Int, sizeof(unsigned int));
+	const ArgTypeUnit atu_ulint(AT_Int, sizeof(unsigned long int));
+	const ArgTypeUnit atu_ullint(AT_Int, sizeof(unsigned long long int));
+	const ArgTypeUnit atu_usint(AT_Int, sizeof(unsigned short int));
+
+	const ArgTypeUnit atu_float(AT_Float, sizeof(float));
+	const ArgTypeUnit atu_double(AT_Float, sizeof(double));
+
+#if (defined(_WIN64))
+	const ArgTypeUnit atu_ldouble = atu_double;
+#elif (defined(__x86_64__))
+	const ArgTypeUnit atu_ldouble(AT_Memory, sizeof(long double), { { 0, &atu_double },{ 8, &atu_double } });
+#endif
+
+	const ArgTypeUnit atu_pointer(AT_Int, sizeof(void*));
+
+	const ArgTypeUnit atu_size(AT_Int, sizeof(size_t));
+
+	const ArgTypeUnit atu_int8(AT_Int, sizeof(int8_t));
+	const ArgTypeUnit atu_int16(AT_Int, sizeof(int16_t));
+	const ArgTypeUnit atu_int32(AT_Int, sizeof(int32_t));
+	const ArgTypeUnit atu_int64(AT_Int, sizeof(int64_t));
+
+	const ArgTypeUnit atu_uint8(AT_Int, sizeof(int8_t));
+	const ArgTypeUnit atu_uint16(AT_Int, sizeof(int16_t));
+	const ArgTypeUnit atu_uint32(AT_Int, sizeof(int32_t));
+	const ArgTypeUnit atu_uint64(AT_Int, sizeof(int64_t));
+}
