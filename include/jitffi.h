@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <functional>
+#include <list>
 
 namespace JitFFI
 {
@@ -177,6 +178,8 @@ namespace JitFFI
 
 		void push(uint64_t);
 
+		void sub_rbx(uint32_t dat);
+		void mov_rbx_rsp();
 		void push_rbx();
 		void pop_rbx();
 
@@ -337,6 +340,7 @@ namespace JitFFI
 		}
 	}
 }
+#include <vector>
 
 namespace JitFFI
 {
@@ -346,7 +350,7 @@ namespace JitFFI
 	{
 		AT_Unknown,
 		AT_Int,
-		AT_Double,
+		AT_Float,
 		AT_Memory,
 	};
 
@@ -363,11 +367,33 @@ namespace JitFFI
 		TypeListUnit *data;
 	};
 
+	struct ArgTypeUnit
+	{
+		struct TypeData { unsigned int post; const ArgTypeUnit *argtype; };
+		using TypeDataList = std::vector<TypeData>;
+
+		explicit ArgTypeUnit(size_t size, TypeDataList &&typedata)
+			: type(AT_Unknown), size(unsigned(size)), typedata(typedata) {}
+
+		explicit ArgTypeUnit(ArgType type, size_t size)
+			: type(type), size(unsigned(size)) {}
+
+		explicit ArgTypeUnit(ArgType type, size_t size, TypeDataList &&typedata)
+			: type(type), size(unsigned(size)), typedata(typedata) {}
+
+		ArgType type = AT_Unknown;
+		unsigned int size = 0;
+		TypeDataList typedata;
+	};
+
 	class NewStruct
 	{
 	public:
 		bool push(byte *dat, unsigned int size);
 
+		void write_uint64(unsigned int i, byte *dat) {
+			((uint64_t*)&_data)[i] = *(uint64_t*)dat;
+		}
 		void write_uint32(unsigned int i, byte *dat) {
 			((uint32_t*)&_data)[i] = *(uint32_t*)dat;
 		}
@@ -394,11 +420,141 @@ namespace JitFFI
 
 	namespace MS64
 	{
+		class ArgumentList
+		{
+			struct Data {
+				ArgType type;
+				uint64_t data;
+			};
+			using DataList = std::list<Data>;
+
+		public:
+			ArgumentList() = default;
+
+			void push(ArgType type, uint64_t v) {
+				list.push_front({ type, v });
+			}
+			unsigned int push_memory(uint64_t v) {
+				memlist.push_front(v);
+				return 1;
+			}
+			unsigned int push_memory(void *dat, size_t size) {
+				assert(size < UINT32_MAX);
+				unsigned int count = size / 8;
+				unsigned int remsize = size % 8;
+
+				uint64_t *dp = reinterpret_cast<uint64_t*>(dat);
+
+				for (unsigned int i = 0; i != count; ++i) {
+					push_memory(dp[i]);
+				}
+
+				if (remsize != 0) {
+					uint64_t v = 0;
+					byte *p = reinterpret_cast<byte*>(dp + count);
+					memcpy(&v, p, remsize);
+					push_memory(v);
+				}
+
+				return count + ((remsize == 0) ? 0 : 1);
+			}
+
+			bool get_next_memory(uint64_t &data) {
+				if (memlist.empty()) {
+					return false;
+				}
+				else {
+					data = memlist.front();
+					memlist.pop_front();
+					return true;
+				}
+			}
+
+			bool get_next(ArgType &type, uint64_t &data) {
+				if (list.empty()) {
+					return false;
+				}
+				else {
+					auto &e = list.front();
+					type = e.type;
+					data = e.data;
+					list.pop_front();
+					return true;
+				}
+			}
+
+			size_t size() const {
+				return list.size();
+			}
+
+		private:
+			DataList list;
+			std::list<uint64_t> memlist;
+		};
+
+		void add_argument(JitFuncCallerCreater &jfcc, ArgumentList &list);
+		void push_data(ArgumentList &list, ArgType type, uint64_t data);
+		void push_struct_data(ArgumentList &list, void *t, const ArgTypeUnit &atu);
 		void pass_struct(JitFuncCallerCreater &jfcc, void *t, size_t size, const TypeList &typelist);
 	}
 
 	namespace SysV64
 	{
+		class ArgumentList
+		{
+			struct Data {
+				ArgType type;
+				uint64_t data;
+			};
+			using DataList = std::list<Data>;
+
+		public:
+			ArgumentList() = default;
+
+			void push(ArgType type, uint64_t v) {
+				switch (type) {
+				case AT_Int: _int_count++; break;
+				case AT_Float: _float_count++; break;
+				case AT_Memory: _memory_count++; break;
+				default: assert(false);
+				}
+				list.push_front({ type, v });
+			}
+
+			bool get_next(ArgType &type, uint64_t &data) {
+				if (list.empty()) {
+					return false;
+				}
+				else {
+					auto &e = list.front();
+					type = e.type;
+					data = e.data;
+					list.pop_front();
+					return true;
+				}
+			}
+
+			unsigned int get_int_count() const {
+				return _int_count;
+			}
+			unsigned int get_float_count() const {
+				return _float_count;
+			}
+			unsigned int get_memory_count() const {
+				return _memory_count;
+			}
+
+		private:
+			DataList list;
+			unsigned int _int_count = 0;
+			unsigned int _float_count = 0;
+			unsigned int _memory_count = 0;
+		};
+
+		void push_data(ArgumentList &list, ArgType type, uint64_t data);
+		void add_argument(JitFuncCallerCreater &jfcc, ArgumentList &list);
+		void push_struct_data(ArgumentList &list, void *t, size_t size, const TypeList &typelist);
+		void push_struct_data(ArgumentList &list, void *t, const ArgTypeUnit &atu);
 		void pass_struct(JitFuncCallerCreater &jfcc, void *t, size_t size, const TypeList &typelist);
 	}
 }

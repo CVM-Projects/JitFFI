@@ -293,7 +293,6 @@ namespace JitFFI
 			jfc.push_uint32(dat);
 		}
 
-
 		inline void sub_rax_byte(JitFuncCreater &jfc, byte v) {
 			jfc.push(0x48, 0x83, 0xe8, v);
 		}
@@ -304,6 +303,14 @@ namespace JitFFI
 			jfc.push(0x48, 0x83, 0xec, v);
 		}
 
+		inline void sub_rbx_uint32(JitFuncCreater &jfc, uint32_t dat) {
+			jfc.push(0x48, 0x81, 0xeb);
+			jfc.push_uint32(dat);
+		}
+
+		inline void ret(JitFuncCreater &jfc) {
+			jfc.push(0xc3);
+		}
 	}
 
 	namespace OpCode

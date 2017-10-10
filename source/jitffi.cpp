@@ -104,6 +104,17 @@ namespace JitFFI
 		return _add_double([&](unsigned int c) { return OpCode_win64::add_double(jfc, dat, c); });
 	}
 
+	void MS64::JitFuncCallerCreaterPlatform::_add_int(const std::function<OpHandler> &handler) {
+		assert(argn - add_count >= 0);
+		++add_count;
+		push_count += handler(argn - add_count);
+	}
+	void MS64::JitFuncCallerCreaterPlatform::_add_double(const std::function<OpHandler> &handler) {
+		assert(argn - add_count >= 0);
+		++add_count;
+		push_count += handler(argn - add_count);
+	}
+
 	void SysV64::JitFuncCallerCreaterPlatform::add_int(uint64_t dat) {
 		return _add_int([&](unsigned int c) { return OpCode_sysv64::add_int(jfc, dat, c); });
 	}
@@ -115,17 +126,6 @@ namespace JitFFI
 	}
 	void SysV64::JitFuncCallerCreaterPlatform::add_double(uint64_t dat) {
 		return _add_double([&](unsigned int c) { return OpCode_sysv64::add_double(jfc, dat, c); });
-	}
-
-	void MS64::JitFuncCallerCreaterPlatform::_add_int(const std::function<OpHandler> &handler) {
-		assert(argn - add_count >= 0);
-		++add_count;
-		push_count += handler(argn - add_count);
-	}
-	void MS64::JitFuncCallerCreaterPlatform::_add_double(const std::function<OpHandler> &handler) {
-		assert(argn - add_count >= 0);
-		++add_count;
-		push_count += handler(argn - add_count);
 	}
 
 	void SysV64::JitFuncCallerCreaterPlatform::_add_int(const std::function<OpHandler> &handler) {
@@ -143,6 +143,13 @@ namespace JitFFI
 		OpCode_x64::mov_rax_uint64(jfc, dat);
 		OpCode_x64::push_rax(jfc);
 		push_count += 1;
+	}
+
+	void JitFuncCallerCreater::sub_rbx(uint32_t dat) {
+		OpCode_x64::sub_rbx_uint32(jfc, dat);
+	}
+	void JitFuncCallerCreater::mov_rbx_rsp() {
+		OpCode_x64::mov_rbx_rsp(jfc);
 	}
 
 	void JitFuncCallerCreater::push_rbx() {
@@ -169,7 +176,7 @@ namespace JitFFI
 	}
 
 	void JitFuncCallerCreater::ret() {
-		OpCode::ret(jfc);
+		OpCode_x64::ret(jfc);
 	}
 }
 
@@ -179,7 +186,16 @@ namespace JitFFI
 		assert(size != 0);
 		if (count + size > 8)
 			return false;
-		if (size == 4) {
+		if (size == 8) {
+			if (count == 0) {
+				write_uint64(0, dat);
+				count = 8;
+			}
+			else {
+				return false;
+			}
+		}
+		else if (size == 4) {
 			if (count == 0) {
 				write_uint32(0, dat);
 				count = 4;
@@ -243,114 +259,222 @@ void JitFFI::MS64::pass_struct(JitFuncCallerCreater & jfcc, void * t, size_t siz
 	}
 }
 
-void JitFFI::SysV64::pass_struct(JitFuncCallerCreater & jfcc, void * t, size_t size, const TypeList & typelist)
+
+namespace JitFFI
 {
-	if (need_pass_by_memory(size)) {
-		jfcc.init_addarg_count(0, 0, 1);
+	namespace MS64
+	{
 
-		for (unsigned int i = typelist.num; i != 0; --i) {
-			auto &e = typelist.data[i - 1];
-			jfcc.push(convert_uint64((byte*)t + e.post, e.size));
+		void push_data(ArgumentList &list, void *t, const ArgTypeUnit &atu) {
+
 		}
-	}
-	else {
-		unsigned int int_count = 0;
-		unsigned int double_count = 0;
-		unsigned int memory_count = 0;
 
-		NewStruct ns;
+		void push_struct_data(ArgumentList &list, void *t, const ArgTypeUnit &atu) {
+			size_t size = atu.size;
 
-		ArgType c_type = AT_Unknown;
-
-		std::vector<uint64_t> vec;
-		std::vector<ArgType> vectype;
-
-		auto add_count = [&](ArgType type) {
-			switch (type) {
-			case AT_Int:
-				int_count++;
-				break;
-			case AT_Double:
-				double_count++;
-				break;
-			case AT_Memory:
-				memory_count++;
-				break;
-			default:
-				assert(false);
-			}
-		};
-
-		auto push_and_clear = [&]() {
-			vec.push_back(ns.data());
-			vectype.push_back(c_type);
-			ns.clear();
-			add_count(c_type);
-			c_type = AT_Unknown;
-		};
-
-		for (unsigned int i = 0; i != typelist.num; ++i) {
-			auto &e = typelist.data[i];
-			ArgType type = e.type;
-			unsigned int size = e.size;
-			byte *p = (byte*)t + e.post;
-
-			assert(size <= 8);
-
-			if (size >= 8) {
-				if (c_type != AT_Unknown) {
-					push_and_clear();
-				}
-				vec.push_back(convert_uint64(p, size));
-				vectype.push_back(type);
-				add_count(type);
+			if (need_pass_by_pointer(size)) {
+				unsigned int offset = list.push_memory(t, size);
+				list.push(AT_Memory, offset);
 			}
 			else {
-				if (ns.push(p, size)) {
+				list.push(atu.type, convert_uint64(t, size));
+			}
+		}
+
+		void add_argument(JitFuncCallerCreater &jfcc, ArgumentList &list) {
+			ArgType type;
+			uint64_t data;
+
+			jfcc.init_addarg_count(list.size(), 0, 0);
+
+			while (list.get_next_memory(data)) {
+				jfcc.push(data);
+			}
+
+			jfcc.mov_rbx_rsp();
+
+			while (list.get_next(type, data)) {
+				switch (type) {
+				case AT_Int:
+					jfcc.add_int(data);
+					break;
+				case AT_Float:
+					jfcc.add_double(data);
+					break;
+				case AT_Memory:
+					jfcc.add_int_rbx();
+					jfcc.sub_rbx(data * 8);
+					break;
+				default:
+					assert(false);
+				}
+			}
+		}
+	}
+
+	namespace SysV64
+	{
+		
+		std::shared_ptr<ArgumentList> init_argumentlist() {
+			return std::shared_ptr<ArgumentList>(new ArgumentList());
+		}
+
+		void push_data(ArgumentList &list, ArgType type, uint64_t data) {
+			list.push(type, data);
+		}
+
+		void push_struct_data(ArgumentList &list, void *t, const ArgTypeUnit &atu)
+		{
+			const ArgType init_type = (atu.type == AT_Memory) ? AT_Memory : AT_Unknown;
+
+			NewStruct ns;
+
+			ArgType c_type = AT_Unknown;
+
+			auto push_and_clear = [&]() {
+				list.push(c_type, ns.data());
+				ns.clear();
+				c_type = AT_Unknown;
+			};
+
+			for (auto &e : atu.typedata) {
+				ArgType type = (init_type == AT_Unknown) ? e.argtype->type : AT_Memory;
+				unsigned int size = e.argtype->size;
+				byte *p = (byte*)t + e.post;
+
+				assert(size <= 8);
+
+				if (size >= 8) {
+					if (c_type != AT_Unknown) {
+						push_and_clear();
+					}
+					list.push(type, convert_uint64(p, size));
+				}
+				else {
+					if (!ns.push(p, size)) {
+						push_and_clear();
+						ns.push(p, size);
+					}
 					switch (type) {
 					case AT_Int:
-						if (c_type == AT_Double || c_type == AT_Unknown) {
+						if (c_type == AT_Float || c_type == AT_Unknown) {
 							c_type = AT_Int;
 						}
 						break;
-					case AT_Double:
+					case AT_Float:
 						if (c_type == AT_Unknown) {
-							c_type = AT_Double;
+							c_type = AT_Float;
 						}
 						break;
 					case AT_Memory:
 						c_type = AT_Memory;
 					}
 				}
+			}
+
+			if (c_type != AT_Unknown) {
+				push_and_clear();
+			}
+		}
+
+		void push_struct_data(ArgumentList &list, void *t, size_t size, const TypeList &typelist)
+		{
+			NewStruct ns;
+
+			ArgType c_type = AT_Unknown;
+
+			auto push_and_clear = [&]() {
+				list.push(c_type, ns.data());
+				ns.clear();
+				c_type = AT_Unknown;
+			};
+
+			for (unsigned int i = 0; i != typelist.num; ++i) {
+				auto &e = typelist.data[i];
+				ArgType type = e.type;
+				unsigned int size = e.size;
+				byte *p = (byte*)t + e.post;
+
+				assert(size <= 8);
+
+				if (size >= 8) {
+					if (c_type != AT_Unknown) {
+						push_and_clear();
+					}
+					list.push(type, convert_uint64(p, size));
+				}
 				else {
-					push_and_clear();
-					i--;
-					continue;
+					if (!ns.push(p, size)) {
+						push_and_clear();
+						ns.push(p, size);
+					}
+					switch (type) {
+					case AT_Int:
+						if (c_type == AT_Float || c_type == AT_Unknown) {
+							c_type = AT_Int;
+						}
+						break;
+					case AT_Float:
+						if (c_type == AT_Unknown) {
+							c_type = AT_Float;
+						}
+						break;
+					case AT_Memory:
+						c_type = AT_Memory;
+					}
+				}
+			}
+
+			if (c_type != AT_Unknown) {
+				push_and_clear();
+			}
+		}
+
+		void add_argument(JitFuncCallerCreater &jfcc, ArgumentList &list)
+		{
+			ArgType type;
+			uint64_t data;
+
+			jfcc.init_addarg_count(list.get_int_count(), list.get_float_count(), list.get_memory_count());
+
+			while (list.get_next(type, data)) {
+				switch (type) {
+				case AT_Int:
+					jfcc.add_int(data);
+					break;
+				case AT_Float:
+					jfcc.add_double(data);
+					break;
+				case AT_Memory:
+					jfcc.push(data);
+					break;
+				default:
+					assert(false);
 				}
 			}
 		}
 
-		if (c_type != AT_Unknown) {
-			push_and_clear();
-		}
+		void pass_struct(JitFuncCallerCreater &jfcc, void * t, size_t size, const TypeList & typelist)
+		{
+			if (need_pass_by_memory(size)) {
+				jfcc.init_addarg_count(0, 0, 1);
 
-		jfcc.init_addarg_count(int_count, double_count, memory_count);
+				for (unsigned int i = typelist.num; i != 0; --i) {
+					auto &e = typelist.data[i - 1];
+					jfcc.push(convert_uint64((byte*)t + e.post, e.size));
+				}
+			}
+			else {
+				ArgumentList list;
 
-		for (unsigned int i = static_cast<unsigned int>(vec.size()); i != 0; --i) {
-			auto &e = vec[i - 1];
-			switch (vectype[i - 1]) {
-			case AT_Int:
-				jfcc.add_int(convert_uint64(e));
-				break;
-			case AT_Double:
-				jfcc.add_double(convert_uint64(e));
-				break;
-			case AT_Memory:
-				jfcc.push(convert_uint64(e));
-				break;
-			default:
-				assert(false);
+				push_struct_data(list, t, size, typelist);
+
+				jfcc.init_addarg_count(list.get_int_count(), list.get_float_count(), list.get_memory_count());
+
+				add_argument(jfcc, list);
 			}
 		}
+
 	}
 }
+

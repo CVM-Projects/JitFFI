@@ -125,7 +125,7 @@ void Call_2(JitFuncCreater &jfc)
 
 		TypeListUnit typelist[] = {
 			{ (uint)((byte*)&t.d0 - (byte*)&t), sizeof(t.d0), AT_Int },
-			{ (uint)((byte*)&t.d1 - (byte*)&t), sizeof(t.d1), AT_Double },
+			{ (uint)((byte*)&t.d1 - (byte*)&t), sizeof(t.d1), AT_Float },
 		};
 
 		pass_struct(jfcc, &t, size, TypeList{ 2, typelist });
@@ -147,7 +147,7 @@ void Call_3(JitFuncCreater &jfc)
 
 		TypeListUnit typelist[] = {
 			{ (uint)((byte*)&t.d0 - (byte*)&t), sizeof(t.d0), AT_Int },
-			{ (uint)((byte*)&t.d1 - (byte*)&t), sizeof(t.d1), AT_Double },
+			{ (uint)((byte*)&t.d1 - (byte*)&t), sizeof(t.d1), AT_Float },
 			{ (uint)((byte*)&t.d2 - (byte*)&t), sizeof(t.d2), AT_Int },
 		};
 
@@ -172,7 +172,7 @@ void Call_4(JitFuncCreater &jfc)
 		TypeListUnit typelist[] = {
 			{ (uint)((byte*)&t.d0 - (byte*)&t), sizeof(t.d0), AT_Int },
 			{ (uint)((byte*)&t.d1 - (byte*)&t), sizeof(t.d1), AT_Int },
-			{ (uint)((byte*)&t.d2 - (byte*)&t), sizeof(t.d2), AT_Double },
+			{ (uint)((byte*)&t.d2 - (byte*)&t), sizeof(t.d2), AT_Float },
 		};
 
 
