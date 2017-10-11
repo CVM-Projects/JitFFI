@@ -67,6 +67,8 @@ namespace JitFFI
 
 			NewStruct ns;
 
+			GetTypePost gtp(atu.typedata);
+
 			ArgType c_type = AT_Unknown;
 
 			auto push_and_clear = [&]() {
@@ -76,9 +78,12 @@ namespace JitFFI
 			};
 
 			for (auto &e : atu.typedata) {
-				ArgType type = (init_type == AT_Unknown) ? e.argtype->type : AT_Memory;
-				unsigned int size = e.argtype->size;
-				byte *p = (byte*)t + e.post;
+				ArgType type = (init_type == AT_Unknown) ? e->type : AT_Memory;
+				unsigned int size = e->size;
+				unsigned int post = gtp.get_next_post();
+
+				//printf("[[[%d]]]", post);
+				byte *p = (byte*)t + post;
 
 				assert(size <= 8);
 

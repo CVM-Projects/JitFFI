@@ -206,7 +206,7 @@ namespace JitFFI
 #if (defined(_WIN64))
 	const ArgTypeUnit atu_ldouble = atu_double;
 #elif (defined(__x86_64__))
-	const ArgTypeUnit atu_ldouble(AT_Memory, sizeof(long double), { { 0, &atu_double },{ 8, &atu_double } });
+	const ArgTypeUnit atu_ldouble(AT_Memory, sizeof(long double), { &atu_double, &atu_double });
 #endif
 
 	const ArgTypeUnit atu_pointer(AT_Int, sizeof(void*));

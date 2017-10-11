@@ -263,17 +263,17 @@ namespace JitFFI
 
 	struct ArgTypeUnit
 	{
-		struct TypeData { unsigned int post; const ArgTypeUnit *argtype; };
+		using TypeData = const ArgTypeUnit*;
 		using TypeDataList = std::vector<TypeData>;
-
-		explicit ArgTypeUnit(size_t size, TypeDataList &&typedata)
-			: type(AT_Unknown), size(unsigned(size)), typedata(typedata) {}
 
 		explicit ArgTypeUnit(ArgType type, size_t size)
 			: type(type), size(unsigned(size)) {}
 
-		explicit ArgTypeUnit(ArgType type, size_t size, TypeDataList &&typedata)
+		explicit ArgTypeUnit(ArgType type, size_t size, const TypeDataList &typedata)
 			: type(type), size(unsigned(size)), typedata(typedata) {}
+
+		explicit ArgTypeUnit(size_t size, const TypeDataList &typedata)
+			: size(unsigned(size)), typedata(typedata) {}
 
 		ArgType type = AT_Unknown;
 		unsigned int size = 0;
