@@ -212,28 +212,28 @@ namespace JitFFI
 			jfc.push_uint32(dat);
 		}
 
-		inline void movq_xmm0_rax(JitFuncCreater &jfc) {
+		inline void mov_xmm0_rax(JitFuncCreater &jfc) {
 			jfc.push(0x66, 0x48, 0x0f, 0x6e, 0xc0);
 		}
-		inline void movq_xmm1_rax(JitFuncCreater &jfc) {
+		inline void mov_xmm1_rax(JitFuncCreater &jfc) {
 			jfc.push(0x66, 0x48, 0x0f, 0x6e, 0xc8);
 		}
-		inline void movq_xmm2_rax(JitFuncCreater &jfc) {
+		inline void mov_xmm2_rax(JitFuncCreater &jfc) {
 			jfc.push(0x66, 0x48, 0x0f, 0x6e, 0xd0);
 		}
-		inline void movq_xmm3_rax(JitFuncCreater &jfc) {
+		inline void mov_xmm3_rax(JitFuncCreater &jfc) {
 			jfc.push(0x66, 0x48, 0x0f, 0x6e, 0xd8);
 		}
-		inline void movq_xmm4_rax(JitFuncCreater &jfc) {
+		inline void mov_xmm4_rax(JitFuncCreater &jfc) {
 			jfc.push(0x66, 0x48, 0x0f, 0x6e, 0xe0);
 		}
-		inline void movq_xmm5_rax(JitFuncCreater &jfc) {
+		inline void mov_xmm5_rax(JitFuncCreater &jfc) {
 			jfc.push(0x66, 0x48, 0x0f, 0x6e, 0xe8);
 		}
-		inline void movq_xmm6_rax(JitFuncCreater &jfc) {
+		inline void mov_xmm6_rax(JitFuncCreater &jfc) {
 			jfc.push(0x66, 0x48, 0x0f, 0x6e, 0xf0);
 		}
-		inline void movq_xmm7_rax(JitFuncCreater &jfc) {
+		inline void mov_xmm7_rax(JitFuncCreater &jfc) {
 			jfc.push(0x66, 0x48, 0x0f, 0x6e, 0xf8);
 		}
 
@@ -384,19 +384,19 @@ namespace JitFFI
 
 		inline void add_double0(JitFuncCreater &jfc, uint64_t dat) {
 			OpCode_x64::mov_rax(jfc, dat);
-			OpCode_x64::movq_xmm0_rax(jfc);
+			OpCode_x64::mov_xmm0_rax(jfc);
 		}
 		inline void add_double1(JitFuncCreater &jfc, uint64_t dat) {
 			OpCode_x64::mov_rax(jfc, dat);
-			OpCode_x64::movq_xmm1_rax(jfc);
+			OpCode_x64::mov_xmm1_rax(jfc);
 		}
 		inline void add_double2(JitFuncCreater &jfc, uint64_t dat) {
 			OpCode_x64::mov_rax(jfc, dat);
-			OpCode_x64::movq_xmm2_rax(jfc);
+			OpCode_x64::mov_xmm2_rax(jfc);
 		}
 		inline void add_double3(JitFuncCreater &jfc, uint64_t dat) {
 			OpCode_x64::mov_rax(jfc, dat);
-			OpCode_x64::movq_xmm3_rax(jfc);
+			OpCode_x64::mov_xmm3_rax(jfc);
 		}
 		inline void add_doublex(JitFuncCreater &jfc, uint64_t dat) {
 			add_intx(jfc, dat);
@@ -515,35 +515,35 @@ namespace JitFFI
 
 		inline void add_double0(JitFuncCreater &jfc, uint64_t dat) {
 			OpCode_x64::mov_rax(jfc, dat);
-			OpCode_x64::movq_xmm0_rax(jfc);
+			OpCode_x64::mov_xmm0_rax(jfc);
 		}
 		inline void add_double1(JitFuncCreater &jfc, uint64_t dat) {
 			OpCode_x64::mov_rax(jfc, dat);
-			OpCode_x64::movq_xmm1_rax(jfc);
+			OpCode_x64::mov_xmm1_rax(jfc);
 		}
 		inline void add_double2(JitFuncCreater &jfc, uint64_t dat) {
 			OpCode_x64::mov_rax(jfc, dat);
-			OpCode_x64::movq_xmm2_rax(jfc);
+			OpCode_x64::mov_xmm2_rax(jfc);
 		}
 		inline void add_double3(JitFuncCreater &jfc, uint64_t dat) {
 			OpCode_x64::mov_rax(jfc, dat);
-			OpCode_x64::movq_xmm3_rax(jfc);
+			OpCode_x64::mov_xmm3_rax(jfc);
 		}
 		inline void add_double4(JitFuncCreater &jfc, uint64_t dat) {
 			OpCode_x64::mov_rax(jfc, dat);
-			OpCode_x64::movq_xmm4_rax(jfc);
+			OpCode_x64::mov_xmm4_rax(jfc);
 		}
 		inline void add_double5(JitFuncCreater &jfc, uint64_t dat) {
 			OpCode_x64::mov_rax(jfc, dat);
-			OpCode_x64::movq_xmm5_rax(jfc);
+			OpCode_x64::mov_xmm5_rax(jfc);
 		}
 		inline void add_double6(JitFuncCreater &jfc, uint64_t dat) {
 			OpCode_x64::mov_rax(jfc, dat);
-			OpCode_x64::movq_xmm6_rax(jfc);
+			OpCode_x64::mov_xmm6_rax(jfc);
 		}
 		inline void add_double7(JitFuncCreater &jfc, uint64_t dat) {
 			OpCode_x64::mov_rax(jfc, dat);
-			OpCode_x64::movq_xmm7_rax(jfc);
+			OpCode_x64::mov_xmm7_rax(jfc);
 		}
 		inline void add_doublex(JitFuncCreater &jfc, uint64_t dat) {
 			add_intx(jfc, dat);

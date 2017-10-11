@@ -6,6 +6,7 @@
 #include <functional>
 #include <list>
 #include <algorithm>
+#include <vector>
 
 namespace JitFFI
 {
@@ -203,68 +204,10 @@ namespace JitFFI
 
 		using OpHandler = unsigned int(unsigned int);
 	};
+}
 
-	namespace MS64
-	{
-		class JitFuncCallerCreaterPlatform : public JitFuncCallerCreater
-		{
-		public:
-			template <typename _FTy>
-			explicit JitFuncCallerCreaterPlatform(JitFuncCreater &jfc, _FTy *func = nullptr)
-				: JitFuncCallerCreater(jfc, func) {}
-
-			void init_addarg_count(unsigned int int_c, unsigned int dou_c, unsigned int mem_c = 0) {
-				argn = int_c + dou_c + mem_c;
-				have_init = true;
-			}
-
-			void add_int(uint64_t dat);
-			void add_int_uint32(uint32_t dat);
-			void add_int_rbx();
-			void add_double(uint64_t dat);
-
-			void call();
-
-		private:
-			void _add_int(const std::function<OpHandler> &handler);
-			void _add_double(const std::function<OpHandler> &handler);
-
-			unsigned int argn;
-			unsigned int add_count = 0;
-		};
-	}
-
-	namespace SysV64
-	{
-		class JitFuncCallerCreaterPlatform : public JitFuncCallerCreater
-		{
-		public:
-			template <typename _FTy>
-			explicit JitFuncCallerCreaterPlatform(JitFuncCreater &jfc, _FTy *func = nullptr)
-				: JitFuncCallerCreater(jfc, func) {}
-
-			void init_addarg_count(unsigned int int_c, unsigned int dou_c, unsigned int mem_c = 0) {
-				addarg_int_count = int_c;
-				addarg_double_count = dou_c;
-				have_init = true;
-			}
-
-			void add_int(uint64_t dat);
-			void add_int_uint32(uint32_t dat);
-			void add_int_rbx();
-			void add_double(uint64_t dat);
-
-			void call();
-
-		private:
-			void _add_int(const std::function<OpHandler> &handler);
-			void _add_double(const std::function<OpHandler> &handler);
-
-			unsigned int addarg_int_count = 0;
-			unsigned int addarg_double_count = 0;
-		};
-	}
-
+namespace JitFFI
+{
 	// convert_uintxx:
 	//    This function can convert to a match size integer of value.
 
@@ -308,43 +251,6 @@ namespace JitFFI
 
 namespace JitFFI
 {
-	namespace MS64
-	{
-		inline bool need_pass_by_pointer(size_t n) {
-			return (n != 1 && n != 2 && n != 4 && n != 8);
-		}
-		inline void push_copy(JitFuncCallerCreater &jfcc, const void *tp, size_t size) {
-			unsigned int n = static_cast<unsigned int>(size / 8 + size % 8);
-			const uint64_t *p = reinterpret_cast<const uint64_t*>(tp);
-
-			for (const uint64_t *dp = p + n; dp != p; --dp) {
-				jfcc.push(*(dp - 1));
-			}
-		}
-	}
-
-	namespace SysV64
-	{
-		enum PassType
-		{
-			PT_Integer,
-			PT_SSE,
-			PT_SSEUP,
-			PT_X87,
-			PT_Memory,
-		};
-		inline bool need_pass_by_memory(size_t n) {
-			if (n > 16)
-				return true;
-			else
-				return false;
-		}
-	}
-}
-#include <vector>
-
-namespace JitFFI
-{
 	using byte = uint8_t;
 
 	enum ArgType
@@ -353,19 +259,6 @@ namespace JitFFI
 		AT_Int,
 		AT_Float,
 		AT_Memory,
-	};
-
-	struct TypeListUnit
-	{
-		unsigned int post;
-		unsigned int size;
-		ArgType type;
-	};
-
-	struct TypeList
-	{
-		unsigned int num;
-		TypeListUnit *data;
 	};
 
 	struct ArgTypeUnit
@@ -421,185 +314,21 @@ namespace JitFFI
 		unsigned int count = 0;
 		uint64_t _data = 0;
 	};
-
-	namespace MS64
-	{
-		class ArgumentList
-		{
-			struct Data {
-				ArgType type;
-				uint64_t data;
-			};
-			using DataList = std::list<Data>;
-
-		public:
-			ArgumentList() = default;
-
-			void push(ArgType type, uint64_t v) {
-				list.push_front({ type, v });
-			}
-			unsigned int push_memory(uint64_t v) {
-				memlist.push_front(v);
-				return 1;
-			}
-			unsigned int push_memory(void *dat, size_t size) {
-				assert(size < UINT32_MAX);
-				unsigned int count = static_cast<unsigned int>(size / 8);
-				unsigned int remsize = static_cast<unsigned int>(size % 8);
-
-				uint64_t *dp = reinterpret_cast<uint64_t*>(dat);
-
-				for (unsigned int i = 0; i != count; ++i) {
-					push_memory(dp[i]);
-				}
-
-				if (remsize != 0) {
-					uint64_t v = 0;
-					byte *p = reinterpret_cast<byte*>(dp + count);
-					memcpy(&v, p, remsize);
-					push_memory(v);
-				}
-
-				return count + ((remsize == 0) ? 0 : 1);
-			}
-
-			bool get_next_memory(uint64_t &data) {
-				if (memlist.empty()) {
-					return false;
-				}
-				else {
-					data = memlist.front();
-					memlist.pop_front();
-					return true;
-				}
-			}
-
-			bool get_next(ArgType &type, uint64_t &data) {
-				if (list.empty()) {
-					return false;
-				}
-				else {
-					auto &e = list.front();
-					type = e.type;
-					data = e.data;
-					list.pop_front();
-					return true;
-				}
-			}
-
-			unsigned int size() const {
-				assert(list.size() < UINT32_MAX);
-				return static_cast<unsigned int>(list.size());
-			}
-
-		private:
-			DataList list;
-			std::list<uint64_t> memlist;
-		};
-
-		void push_data(ArgumentList &list, void *t, const ArgTypeUnit &atu);
-		void add_argument(JitFuncCallerCreater &jfcc, ArgumentList &list);
-
-		// Will be deleted.
-		void pass_struct(JitFuncCallerCreater &jfcc, void *t, size_t size, const TypeList &typelist);
-	}
-
-	namespace SysV64
-	{
-		class ArgumentList
-		{
-			struct Data {
-				ArgType type;
-				uint64_t data;
-			};
-			using DataList = std::list<Data>;
-
-		public:
-			ArgumentList() = default;
-
-			void push(ArgType type, uint64_t v) {
-				switch (type) {
-				case AT_Int: _int_count++; break;
-				case AT_Float: _float_count++; break;
-				case AT_Memory: _memory_count++; break;
-				default: assert(false);
-				}
-				list.push_front({ type, v });
-			}
-
-			bool get_next(ArgType &type, uint64_t &data) {
-				if (list.empty()) {
-					return false;
-				}
-				else {
-					auto &e = list.front();
-					type = e.type;
-					data = e.data;
-					list.pop_front();
-					return true;
-				}
-			}
-
-			unsigned int get_int_count() const {
-				return _int_count;
-			}
-			unsigned int get_float_count() const {
-				return _float_count;
-			}
-			unsigned int get_memory_count() const {
-				return _memory_count;
-			}
-
-		private:
-			DataList list;
-			unsigned int _int_count = 0;
-			unsigned int _float_count = 0;
-			unsigned int _memory_count = 0;
-		};
-
-		void push_data(ArgumentList &list, void *t, const ArgTypeUnit &atu);
-		void add_argument(JitFuncCallerCreater &jfcc, ArgumentList &list);
-
-		// Will be deleted.
-		void push_struct_data(ArgumentList &list, void *t, size_t size, const TypeList &typelist);
-		void pass_struct(JitFuncCallerCreater &jfcc, void *t, size_t size, const TypeList &typelist);
-	}
 }
 
 namespace JitFFI
 {
-	namespace SysV64
-	{
-		void create_function_caller(JitFuncCreater &jfc, ArgumentList &list, void *func);
-		void create_function_caller(JitFuncCreater &jfc, void *func, const ArgDataList &adlist, const ArgTypeList &atlist);
-
-		template <typename _FTy>
-		void create_function_caller(JitFuncCreater &jfc, ArgumentList &list, _FTy *func)
-		{
-			create_function_caller(jfc, list, (void*)func);
-		}
-		template <typename _FTy>
-		void create_function_caller(JitFuncCreater &jfc, _FTy *func, const ArgDataList &adlist, const ArgTypeList &atlist)
-		{
-			create_function_caller(jfc, (void*)func, adlist, atlist);
-		}
+#define _DECLARE_create_function_caller \
+	void create_function_caller(JitFuncCreater &jfc, void *func, const ArgDataList &adlist, const ArgTypeList &atlist); \
+	template <typename _FTy> \
+	void create_function_caller(JitFuncCreater &jfc, _FTy *func, const ArgDataList &adlist, const ArgTypeList &atlist) { \
+		create_function_caller(jfc, (void*)func, adlist, atlist); \
 	}
-	namespace MS64
-	{
-		void create_function_caller(JitFuncCreater &jfc, ArgumentList &list, void *func);
-		void create_function_caller(JitFuncCreater &jfc, void *func, const ArgDataList &adlist, const ArgTypeList &atlist);
 
-		template <typename _FTy>
-		void create_function_caller(JitFuncCreater &jfc, ArgumentList &list, _FTy *func)
-		{
-			create_function_caller(jfc, list, (void*)func);
-		}
-		template <typename _FTy>
-		void create_function_caller(JitFuncCreater &jfc, _FTy *func, const ArgDataList &adlist, const ArgTypeList &atlist)
-		{
-			create_function_caller(jfc, (void*)func, adlist, atlist);
-		}
-	}
+	namespace SysV64 { _DECLARE_create_function_caller }
+	namespace MS64 { _DECLARE_create_function_caller }
+
+#undef _DECLARE_create_function_caller
 }
 
 namespace JitFFI

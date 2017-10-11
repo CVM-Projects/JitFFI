@@ -5,12 +5,12 @@ JIT compiler for FFI (Foreign-Function Interface).
 
 Architecture|Operating System|Calling convention |Compilers|Support
 ------------|----------------|-------------------|---------|-------
-x86-64|Windows|Microsoft x64|MSVC, MinGW|Partial
-x86-64|Linux|System V AMD64 ABI|GCC|Partial
+x86-64|Windows|Microsoft x64|MSVC, MinGW|Most
+x86-64|Linux|System V AMD64 ABI|GCC|Most
 
 ## Run Example
 
 ```
-g++ -std=c++14 testsuite/test1.cpp source/jitffi.cpp -Iinclude -o test
+python ./test.py n   # n is the num you want to run.
 ./test
 ```
