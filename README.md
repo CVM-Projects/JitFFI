@@ -12,5 +12,4 @@ x86-64|Linux|System V AMD64 ABI|GCC|Most
 
 ```
 python ./test.py n   # n is the num you want to run.
-./test
 ```
