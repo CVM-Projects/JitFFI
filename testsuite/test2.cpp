@@ -6,6 +6,16 @@ typedef struct {
 	uint8_t d0;
 } type1;
 
+const ArgTypeUnit& get_atu_type1()
+{
+	static type1 t;
+	static ArgTypeUnit atu(sizeof(type1), {
+		{ get_post(&t, &t.d0), &atu_uint8 }
+	});
+
+	return atu;
+}
+
 void print_struct1(type1 t)
 {
 	print(t.d0);
@@ -15,6 +25,17 @@ typedef struct {
 	uint8_t d0;
 	double d1;
 } type2;
+
+const ArgTypeUnit& get_atu_type2()
+{
+	static type2 t;
+	static ArgTypeUnit atu(sizeof(type2), {
+		{ get_post(&t, &t.d0), &atu_uint8 },
+		{ get_post(&t, &t.d1), &atu_double }
+	});
+
+	return atu;
+}
 
 void print_struct2(type2 t)
 {
@@ -27,6 +48,18 @@ typedef struct {
 	double d1;
 	uint32_t d2;
 } type3;
+
+const ArgTypeUnit& get_atu_type3()
+{
+	static type3 t;
+	static ArgTypeUnit atu(sizeof(type3), {
+		{ get_post(&t, &t.d0), &atu_uint8 },
+		{ get_post(&t, &t.d1), &atu_double },
+		{ get_post(&t, &t.d2), &atu_uint32 }
+	});
+
+	return atu;
+}
 
 void print_struct3(type3 t)
 {
@@ -41,6 +74,18 @@ typedef struct {
 	double d2;
 } type4;
 
+const ArgTypeUnit& get_atu_type4()
+{
+	static type4 t;
+	static ArgTypeUnit atu(sizeof(type4), {
+		{ get_post(&t, &t.d0), &atu_uint8 },
+		{ get_post(&t, &t.d1), &atu_uint8 },
+		{ get_post(&t, &t.d2), &atu_double }
+	});
+
+	return atu;
+}
+
 void print_struct4(type4 t)
 {
 	print(t.d0);
@@ -52,6 +97,17 @@ typedef struct {
 	uint64_t d0;
 	uint64_t d1;
 } type5;
+
+const ArgTypeUnit& get_atu_type5()
+{
+	static type5 t;
+	static ArgTypeUnit atu(sizeof(type5), {
+		{ get_post(&t, &t.d0), &atu_uint64 },
+		{ get_post(&t, &t.d1), &atu_uint64 }
+	});
+
+	return atu;
+}
 
 void print_struct5(type5 t)
 {
@@ -65,6 +121,18 @@ typedef struct {
 	uint64_t d2;
 } type6;
 
+const ArgTypeUnit& get_atu_type6()
+{
+	static type6 t;
+	static ArgTypeUnit atu(sizeof(type6), {
+		{ get_post(&t, &t.d0), &atu_uint64 },
+		{ get_post(&t, &t.d1), &atu_uint64 },
+		{ get_post(&t, &t.d2), &atu_uint64 }
+	});
+
+	return atu;
+}
+
 void print_struct6(type6 t)
 {
 	print(t.d0);
@@ -72,161 +140,46 @@ void print_struct6(type6 t)
 	print(t.d2);
 }
 
-using CallFunc = std::function<void(JitFuncCallerCreater &)>;
-
-void Call_SX(JitFuncCallerCreater &jfcc, CallFunc f)
-{
-	jfcc.push_rbx();
-
-	byte &v = jfcc.sub_rsp_unadjusted();
-
-	f(jfcc);
-
-	jfcc.call();
-
-	jfcc.add_rsp();
-	jfcc.adjust_sub_rsp(v);
-
-	jfcc.pop_rbx();
-	jfcc.ret();
-}
-
 void Call_1(JitFuncCreater &jfc)
 {
-	using namespace JitFFI::CurrABI;
+	type1 t{ 1 };
 
-	JitFuncCallerCreaterPlatform jfcc(jfc, &print_struct1);
-
-	auto f = [](JitFuncCallerCreater &jfcc) {
-		auto size = sizeof(type1);
-
-		type1 t{ 1 };
-
-		TypeListUnit typelist[] = {
-			{ (uint)((byte*)&t.d0 - (byte*)&t), sizeof(t.d0), AT_Int },
-		};
-
-		pass_struct(jfcc, &t, size, TypeList{ 1, typelist });
-	};
-
-	Call_SX(jfcc, f);
+	CurrABI::create_function_caller(jfc, &print_struct1, { &t }, { &get_atu_type1() });
 }
 
 void Call_2(JitFuncCreater &jfc)
 {
-	using namespace JitFFI::CurrABI;
+	type2 t{ 1, 2.5789763 };
 
-	JitFuncCallerCreaterPlatform jfcc(jfc, &print_struct2);
-
-	auto f = [](JitFuncCallerCreater &jfcc) {
-		auto size = sizeof(type2);
-
-		type2 t{ 1, 2.5789763 };
-
-		TypeListUnit typelist[] = {
-			{ (uint)((byte*)&t.d0 - (byte*)&t), sizeof(t.d0), AT_Int },
-			{ (uint)((byte*)&t.d1 - (byte*)&t), sizeof(t.d1), AT_Float },
-		};
-
-		pass_struct(jfcc, &t, size, TypeList{ 2, typelist });
-	};
-
-	Call_SX(jfcc, f);
+	CurrABI::create_function_caller(jfc, &print_struct2, { &t }, { &get_atu_type2() });
 }
 
 void Call_3(JitFuncCreater &jfc)
 {
-	using namespace JitFFI::CurrABI;
+	type3 t = { 1, 2.5789763, 3 };
 
-	JitFuncCallerCreaterPlatform jfcc(jfc, &print_struct3);
-
-	auto f = [](JitFuncCallerCreater &jfcc) {
-		size_t size = sizeof(type3);
-
-		type3 t = { 1, 2.5789763, 3 };
-
-		TypeListUnit typelist[] = {
-			{ (uint)((byte*)&t.d0 - (byte*)&t), sizeof(t.d0), AT_Int },
-			{ (uint)((byte*)&t.d1 - (byte*)&t), sizeof(t.d1), AT_Float },
-			{ (uint)((byte*)&t.d2 - (byte*)&t), sizeof(t.d2), AT_Int },
-		};
-
-
-		pass_struct(jfcc, &t, size, TypeList{ 3, typelist });
-	};
-
-	Call_SX(jfcc, f);
+	CurrABI::create_function_caller(jfc, &print_struct3, { &t }, { &get_atu_type3() });
 }
 
 void Call_4(JitFuncCreater &jfc)
 {
-	using namespace JitFFI::CurrABI;
+	type4 t = { 1, 0x22222222, 2.5789763 };
 
-	JitFuncCallerCreaterPlatform jfcc(jfc, &print_struct4);
-
-	auto f = [](JitFuncCallerCreater &jfcc) {
-		size_t size = sizeof(type4);
-
-		type4 t = { 1, 0x22222222, 2.5789763 };
-
-		TypeListUnit typelist[] = {
-			{ (uint)((byte*)&t.d0 - (byte*)&t), sizeof(t.d0), AT_Int },
-			{ (uint)((byte*)&t.d1 - (byte*)&t), sizeof(t.d1), AT_Int },
-			{ (uint)((byte*)&t.d2 - (byte*)&t), sizeof(t.d2), AT_Float },
-		};
-
-
-		pass_struct(jfcc, &t, size, TypeList{ 3, typelist });
-	};
-
-	Call_SX(jfcc, f);
+	CurrABI::create_function_caller(jfc, &print_struct4, { &t }, { &get_atu_type4() });
 }
 
 void Call_5(JitFuncCreater &jfc)
 {
-	using namespace JitFFI::CurrABI;
+	type5 t = { 1, 2 };
 
-	JitFuncCallerCreaterPlatform jfcc(jfc, &print_struct5);
-
-	auto f = [](JitFuncCallerCreater &jfcc) {
-		size_t size = sizeof(type5);
-
-		type5 t = { 1, 2 };
-
-		TypeListUnit typelist[] = {
-			{ (uint)((byte*)&t.d0 - (byte*)&t), sizeof(t.d0), AT_Int },
-			{ (uint)((byte*)&t.d1 - (byte*)&t), sizeof(t.d1), AT_Int },
-		};
-
-
-		pass_struct(jfcc, &t, size, TypeList{ 2, typelist });
-	};
-
-	Call_SX(jfcc, f);
+	CurrABI::create_function_caller(jfc, &print_struct5, { &t }, { &get_atu_type5() });
 }
 
 void Call_6(JitFuncCreater &jfc)
 {
-	using namespace JitFFI::CurrABI;
+	type6 t = { 1, 2, 3 };
 
-	JitFuncCallerCreaterPlatform jfcc(jfc, &print_struct6);
-
-	auto f = [](JitFuncCallerCreater &jfcc) {
-		size_t size = sizeof(type6);
-
-		type6 t = { 1, 2, 3 };
-
-		TypeListUnit typelist[] = {
-			{ (uint)((byte*)&t.d0 - (byte*)&t), sizeof(t.d0), AT_Int },
-			{ (uint)((byte*)&t.d1 - (byte*)&t), sizeof(t.d1), AT_Int },
-			{ (uint)((byte*)&t.d2 - (byte*)&t), sizeof(t.d2), AT_Int },
-		};
-
-
-		pass_struct(jfcc, &t, size, TypeList{ 3, typelist });
-	};
-
-	Call_SX(jfcc, f);
+	CurrABI::create_function_caller(jfc, &print_struct6, { &t }, { &get_atu_type6() });
 }
 
 int main(int argc, char *argv[])

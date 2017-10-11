@@ -274,7 +274,7 @@ namespace JitFFI
 				push_struct_data_base(list, t, atu);
 			}
 			else {
-				list.push(atu.type, convert_uint64(t, atu.size));
+				list.push(atu.type == AT_Unknown ? AT_Int : atu.type, convert_uint64(t, atu.size));
 			}
 		}
 
@@ -329,11 +329,6 @@ namespace JitFFI
 
 	namespace SysV64
 	{
-		
-		std::shared_ptr<ArgumentList> init_argumentlist() {
-			return std::shared_ptr<ArgumentList>(new ArgumentList());
-		}
-
 		void push_struct_data(ArgumentList &list, void *t, const ArgTypeUnit &atu);
 
 		void push_data(ArgumentList &list, void *t, const ArgTypeUnit &atu) {
@@ -353,7 +348,7 @@ namespace JitFFI
 
 		void push_struct_data(ArgumentList &list, void *t, const ArgTypeUnit &atu)
 		{
-			const ArgType init_type = (atu.type == AT_Memory) ? AT_Memory : AT_Unknown;
+			const ArgType init_type = (atu.size > 16 || atu.type == AT_Memory) ? AT_Memory : AT_Unknown;
 
 			NewStruct ns;
 

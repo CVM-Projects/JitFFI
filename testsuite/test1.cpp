@@ -200,10 +200,6 @@ void caller(int64 a, int64 b)
 	printf("%lld\n", b);
 }
 
-void caller()
-{
-}
-
 void callerNX(int64 a0, double b0, int64 a1, double b1, int64 a2, double b2, int64 a3, double b3) {
 	print_num(a0);
 	print_num(b0);
@@ -215,316 +211,63 @@ void callerNX(int64 a0, double b0, int64 a1, double b1, int64 a2, double b2, int
 	print_num(b3);
 }
 
-void Call_1(JitFuncCreater &jfc) {
-	const unsigned int argn = 4;
+void Call_1(JitFuncCreater &jfc)
+{
+	double v0 = 1.0;
+	double v1 = 2.0;
+	double v2 = 3.0;
+	double v3 = 4.0;
 
-	using namespace JitFFI::CurrABI;
-
-	JitFuncCallerCreaterPlatform jfcc(jfc, &callerX4);
-	jfcc.init_addarg_count(0, argn);
-
-	byte &v = jfcc.sub_rsp_unadjusted();
-
-	for (double v = argn; v != 0; --v)
-		jfcc.add_double(convert_uint64(v));
-
-	jfcc.adjust_sub_rsp(v);
-
-	jfcc.call();
-	jfcc.add_rsp();
-	jfcc.ret();
+	CurrABI::create_function_caller(jfc, &callerX4,
+	{ &v0, &v1, &v2, &v3 },
+	{ &atu_double, &atu_double, &atu_double, &atu_double });
 }
 
-void Call_2(JitFuncCreater &jfc) {
+void Call_2(JitFuncCreater &jfc)
+{
 	const unsigned int argn = 10;
 
-	using namespace JitFFI::CurrABI;
+	ArgDataList dl;
+	ArgTypeList tl;
+	uint64_t arr[argn];
 
-	JitFuncCallerCreaterPlatform jfcc(jfc, &callerN10);
-	jfcc.init_addarg_count(argn, 0);
+	for (uint64_t i = 0; i < argn; i++) {
+		arr[i] = i + 1;
+		dl.push_back(&arr[i]);
+		tl.push_back(&atu_uint64);
+	}
 
-	byte &v = jfcc.sub_rsp_unadjusted();
-
-	for (int v = argn; v != 0; --v)
-		jfcc.add_int(convert_uint64(v));
-
-	jfcc.adjust_sub_rsp(v);
-
-	jfcc.call();
-	jfcc.add_rsp();
-	jfcc.ret();
+	CurrABI::create_function_caller(jfc, &callerN10, dl, tl);
 }
 
-void Call_3(JitFuncCreater &jfc) {
-
-	using namespace JitFFI::CurrABI;
-
-	JitFuncCallerCreaterPlatform jfcc(jfc, &callerNX);
-	jfcc.init_addarg_count(4, 4);
-
-	byte &v = jfcc.sub_rsp_unadjusted();
-
-	jfcc.add_double(convert_uint64(8.0));
-	jfcc.add_int(convert_uint64(7));
-	jfcc.add_double(convert_uint64(6.0));
-	jfcc.add_int(convert_uint64(5));
-	jfcc.add_double(convert_uint64(4.0));
-	jfcc.add_int(convert_uint64(3));
-	jfcc.add_double(convert_uint64(2.0));
-	jfcc.add_int(convert_uint64(1));
-
-	jfcc.adjust_sub_rsp(v);
-
-	jfcc.call();
-	jfcc.add_rsp();
-	jfcc.ret();
-}
-
-struct Point
+void Call_3(JitFuncCreater &jfc)
 {
-	uint64_t x;
-	uint64_t y;
-};
+	const unsigned int argn = 8;
 
-Point *global_p;
+	ArgDataList dl;
+	ArgTypeList tl;
+	uint64_t arr[argn];
 
-void print(uint64_t x)
-{
-	printf("0x%llX ", x);
-}
-
-void print_Point(Point p)
-{
-	//print(p.x);
-	//print(p.y);
-	printf("(0x%llX, 0x%llX)\n", p.x, p.y);
-	p.x++;
-	p.y++;
-}
-
-void print_int(int64 v)
-{
-	printf("0x%I64X\n", v);
-}
-
-uint64_t new_malloc(uint64_t size)
-{
-	return (uint64_t)malloc(size);
-}
-
-void new_free(uint64_t address)
-{
-	free((void*)address);
-}
-
-
-void print_PointX(Point *p)
-{
-	printf("(0x%llX, 0x%llX)\n", p->x, p->y);
-	p->x++;
-	p->y++;
-}
-
-void print_PointN6(Point p0, Point p1, Point p2, Point p3, Point p4, Point p5)
-{
-	print_Point(p0);
-	print_Point(p1);
-	print_Point(p2);
-	print_Point(p3);
-	print_Point(p4);
-	print_Point(p5);
-}
-
-void Call_4X(JitFuncCreater &jfc) {
-	global_p = new Point{ 5, 6 };
-	Point *p = global_p;
-
-	OpCode_x64::sub_rsp_byte(jfc, 0x28);
-
-	OpCode_win64::add_int0(jfc, sizeof(Point));
-	OpCode::call_func(jfc, &new_malloc);
-
-	OpCode_x64::mov_rbx_rax(jfc);
-
-	OpCode_x64::mov_rcx_rax(jfc);
-	OpCode_x64::mov_rdx_uint64(jfc, (uint64_t)global_p);
-	OpCode_x64::mov_r8d_uint32(jfc, sizeof(Point));
-	OpCode::call_func(jfc, &memcpy);
-
-	OpCode_x64::mov_rcx_rax(jfc);
-	OpCode::call_func(jfc, &print_Point);
-
-	OpCode_x64::mov_rcx_rbx(jfc);
-	OpCode::call_func(jfc, &new_free);
-
-	OpCode_x64::add_rsp_byte(jfc, 0x28);
-	OpCode::ret(jfc);
-}
-
-void Call_4(JitFuncCreater &jfc) {
-
-	const size_t argn = 6;
-
-	using namespace JitFFI::CurrABI;
-
-	JitFuncCallerCreaterPlatform jfcc(jfc, &print_PointN6);
-
-	jfcc.init_addarg_count(argn, 0);
-
-	uint64_t *p = (uint64_t*)global_p;
-
-	unsigned int count = 0;
-
-	unsigned int size = sizeof(Point);
-	unsigned int n = size / 8 + size % 8;
-
-	OpCode_x64::push_rbx(jfc);
-
-	byte &v = jfcc.sub_rsp_unadjusted();
-
-#if (defined(_WIN64))
-	for (int i = 0; i < argn; ++i) {
-		for (uint64_t *dp = p + n; dp != p; --dp) {
-			jfcc.push(*(dp - 1));
+	for (uint64_t i = 0; i < argn; i++) {
+		if (i % 2 == 0) {
+			arr[i] = i + 1;
+			tl.push_back(&atu_uint64);
 		}
-	}
-
-	OpCode_x64::mov_rbx_rsp(jfc);
-
-	for (int i = argn; i != 0; --i) {
-		jfcc.add_int_rbx();
-		assert(n * 0x8 <= UINT32_MAX && int32_t(n * 0x8) > 0);
-		OpCode_x64::add_rbx_uint32(jfc, n * 0x8);
-	}
-#elif (defined(__x86_64__))
-	for (int i = 0; i < argn; ++i) {
-		for (uint64_t *dp = p + n; dp != p; --dp) {
-			jfcc.add_int(*(dp - 1));
+		else {
+			arr[i] = convert_uint64((i + 1) * 1.0);
+			tl.push_back(&atu_double);
 		}
-	}
-#endif
-
-	jfcc.call();
-
-	jfcc.add_rsp();
-
-	jfcc.adjust_sub_rsp(v);
-
-	OpCode_x64::pop_rbx(jfc);
-
-	OpCode::ret(jfc);
+		dl.push_back(&arr[i]);
 	}
 
-struct PointX3
-{
-	uint64_t x;
-	uint64_t y;
-	uint64_t z;
-};
-
-void print_PointX3(PointX3 p)
-{
-	printf("(%llX, %llX, %llX)\n", p.x, p.y, p.z);
-}
-
-void print_PointX3N6(PointX3 p0, PointX3 p1, PointX3 p2, PointX3 p3, PointX3 p4, PointX3 p5)
-{
-	print_PointX3(p0);
-	print_PointX3(p1);
-	print_PointX3(p2);
-	print_PointX3(p3);
-	print_PointX3(p4);
-	print_PointX3(p5);
-}
-
-
-PointX3 *global_pX;
-
-void Call_5(JitFuncCreater &jfc) {
-
-	const size_t argn = 6;
-
-	using namespace JitFFI::CurrABI;
-
-	JitFuncCallerCreaterPlatform jfcc(jfc, &print_PointX3N6);
-
-	jfcc.init_addarg_count(0, 0, argn);
-
-	uint64_t *p = (uint64_t*)global_pX;
-
-	unsigned int count = 0;
-
-	size_t size = sizeof(PointX3);
-	size_t n = size / 8 + size % 8;
-
-	jfcc.push_rbx();
-
-	byte &v = jfcc.sub_rsp_unadjusted();
-
-#if (defined(_WIN64))
-	for (int i = 0; i < argn; ++i) {
-		for (uint64_t *dp = p + n; dp != p; --dp) {
-			jfcc.push(*(dp - 1));
-		}
-	}
-
-	OpCode_x64::mov_rbx_rsp(jfc);
-
-	for (int i = argn; i != 0; --i) {
-		jfcc.add_int_rbx();
-		OpCode_x64::add_rbx_uint32(jfc, n * 0x8); // NOTICE : may > 4 byte
-	}
-#elif (defined(__x86_64__))
-
-	uint64_t c = 1;
-	for (int i = 0; i < argn; ++i) {
-		for (uint64_t *dp = p + n; dp != p; --dp) {
-			jfcc.push(c++);
-		}
-	}
-#endif
-
-	jfcc.call();
-
-	jfcc.add_rsp();
-
-	jfcc.adjust_sub_rsp(v);
-
-	jfcc.pop_rbx();
-
-	OpCode::ret(jfc);
-}
-
-using ii = uint64_t;
-
-void callee(ii a, ii b, ii c, ii d, ii e)
-{
-	print_num(a);
-	print_num(b);
-	print_num(c);
-	print_num(d);
-	print_num(e);
-}
-
-void callerX()
-{
-	Point p{ 5, 6 };
-	print_Point(p);
-	//callee(1, 2, 3, 4, 0x55555555);
+	CurrABI::create_function_caller(jfc, &callerNX, dl, tl);
 }
 
 int main(int argc, char *argv[])
 {
-	global_p = new Point{ 0x15, 0x36 };
-	global_pX = new PointX3{ 0x15, 0x36, 0x75 };
-
 	Call(Call_1);
 	Call(Call_2);
 	Call(Call_3);
-	Call(Call_4);
-	Call(Call_5);
-
-	print_Point(*global_p);
 
 	printf("Done.\n");
 

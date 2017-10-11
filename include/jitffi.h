@@ -5,6 +5,7 @@
 #include <cstring>
 #include <functional>
 #include <list>
+#include <algorithm>
 
 namespace JitFFI
 {
@@ -638,6 +639,20 @@ namespace JitFFI
 	extern const ArgTypeUnit atu_uint16;
 	extern const ArgTypeUnit atu_uint32;
 	extern const ArgTypeUnit atu_uint64;
+
+
+	template <typename _Ty1, typename _Ty2>
+	unsigned int get_post(const _Ty1 *t1, const _Ty2 *t2)
+	{
+		const byte *p1 = (const byte*)t1;
+		const byte *p2 = (const byte*)t2;
+
+		std::tie(p1, p2) = std::minmax(p1, p2);
+
+		assert(p2 - p1 < UINT32_MAX);
+
+		return static_cast<unsigned int>(p2 - p1);
+	}
 }
 
 #if (defined (_WIN64))
