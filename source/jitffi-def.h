@@ -3,23 +3,18 @@
 
 namespace JitFFI
 {
-	class GetTypePost
-	{
-		using Unit = const ArgTypeUnit* const;
-	public:
-		explicit GetTypePost(const ArgTypeUnit::TypeDataList &list, unsigned int pack = 8)
-			: begin(&*list.begin()), end(&*list.end()), pack(pack), ptr(begin) {}
+	inline auto get_next_post_f(std::function<const ArgTypeUnit *()> get_next_data, const unsigned int pack = 8) {
+		bool is_first = true;
+		unsigned int count = 0;
 
-		explicit GetTypePost(Unit *begin, Unit *end, unsigned int pack = 8)
-			: begin(begin), end(end), pack(pack), ptr(begin) {}
-
-		unsigned int get_next_post() {
+		return [=]() mutable {
 			unsigned int result;
 
-			const ArgTypeUnit &type = **ptr;
-			if (ptr == begin) {
+			const ArgTypeUnit &type = *get_next_data();
+			if (is_first) {
 				count += type.size;
 				result = 0;
+				is_first = false;
 			}
 			else {
 				unsigned int npack = std::min(pack, type.size);
@@ -33,17 +28,9 @@ namespace JitFFI
 
 				count += type.size;
 			}
-			ptr++;
 			return result;
-		}
-
-	private:
-		Unit * const begin;
-		Unit * const end;
-		const unsigned int pack;
-		const ArgTypeUnit *const * ptr;
-		unsigned int count = 0;
-	};
+		};
+	}
 
 	template <typename ArgumentList, typename JitFuncCallerCreaterPlatform>
 	void create_function_caller_base(JitFuncCreater &jfc, ArgumentList &list, void *func)

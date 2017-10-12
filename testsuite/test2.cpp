@@ -107,7 +107,7 @@ void Call_3(JitFuncCreater &jfc)
 
 void Call_4(JitFuncCreater &jfc)
 {
-	type4 t = { 1, 0x22222222, 2.5789763 };
+	type4 t = { 1, 0x22, 2.5789763 };
 
 	CurrABI::create_function_caller(jfc, &print_struct4, { &t }, { &atu_type4 });
 }
@@ -125,7 +125,6 @@ void Call_6(JitFuncCreater &jfc)
 
 	CurrABI::create_function_caller(jfc, &print_struct6, { &t }, { &atu_type6 });
 }
-
 
 int main(int argc, char *argv[])
 {
