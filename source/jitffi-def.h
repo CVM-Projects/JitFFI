@@ -3,30 +3,29 @@
 
 namespace JitFFI
 {
-	inline auto get_next_post_f(std::function<const ArgTypeUnit *()> get_next_data, const unsigned int pack = 8) {
+	inline auto get_next_post_f(std::function<size_t()> get_next_size, const unsigned int align) {
 		bool is_first = true;
 		unsigned int count = 0;
 
 		return [=]() mutable {
 			unsigned int result;
 
-			const ArgTypeUnit &type = *get_next_data();
+			size_t size = get_next_size();
 			if (is_first) {
-				count += type.size;
+				count += size;
 				result = 0;
 				is_first = false;
 			}
 			else {
-				unsigned int npack = std::min(pack, type.size);
+				assert(size < UINT32_MAX);
+				unsigned int pack = std::min<unsigned int>(align, size);
+				unsigned int rem = count % pack;
 
-				unsigned int rem = count % npack;
 				if (rem != 0) {
-					count += npack - rem;
+					count += pack - rem;
 				}
-
 				result = count;
-
-				count += type.size;
+				count += size;
 			}
 			return result;
 		};

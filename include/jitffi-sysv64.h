@@ -59,6 +59,15 @@ namespace JitFFI
 				list.push_front({ type, v });
 			}
 
+			void push_memory(uint64_t v) {
+				list.push_front({ AT_Memory, v });
+				_memory_count++;
+			}
+
+			void push_memory(void *dat, size_t size) {
+				JitFFI::push_memory<uint64_t>(dat, size, [&](uint64_t v) { push_memory(v); });
+			}
+
 			bool get_next(ArgType &type, uint64_t &data) {
 				if (list.empty()) {
 					return false;

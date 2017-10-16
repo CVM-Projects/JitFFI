@@ -183,43 +183,47 @@ namespace JitFFI
 
 namespace JitFFI
 {
-	const ArgTypeUnit atu_bool(AT_Int, sizeof(bool));
+#define _define_atu_(name, type, at_type) const ArgTypeUnit atu_##name(at_type, sizeof(type), alignof(type))
 
-	const ArgTypeUnit atu_char(AT_Int, sizeof(char));
-	const ArgTypeUnit atu_schar(AT_Int, sizeof(signed char));
-	const ArgTypeUnit atu_uchar(AT_Int, sizeof(unsigned char));
-	const ArgTypeUnit atu_wchar(AT_Int, sizeof(wchar_t));
+	_define_atu_(bool, bool, AT_Int);
 
-	const ArgTypeUnit atu_int(AT_Int, sizeof(int));
-	const ArgTypeUnit atu_lint(AT_Int, sizeof(long int));
-	const ArgTypeUnit atu_llint(AT_Int, sizeof(long long int));
-	const ArgTypeUnit atu_sint(AT_Int, sizeof(short int));
+	_define_atu_(char, char, AT_Int);
+	_define_atu_(schar, signed char, AT_Int);
+	_define_atu_(uchar, unsigned char, AT_Int);
+	_define_atu_(wchar, wchar_t, AT_Int);
 
-	const ArgTypeUnit atu_uint(AT_Int, sizeof(unsigned int));
-	const ArgTypeUnit atu_ulint(AT_Int, sizeof(unsigned long int));
-	const ArgTypeUnit atu_ullint(AT_Int, sizeof(unsigned long long int));
-	const ArgTypeUnit atu_usint(AT_Int, sizeof(unsigned short int));
+	_define_atu_(int, int, AT_Int);
+	_define_atu_(lint, long int, AT_Int);
+	_define_atu_(llint, long long int, AT_Int);
+	_define_atu_(sint, short int, AT_Int);
 
-	const ArgTypeUnit atu_float(AT_Float, sizeof(float));
-	const ArgTypeUnit atu_double(AT_Float, sizeof(double));
+	_define_atu_(uint, unsigned int, AT_Int);
+	_define_atu_(ulint, unsigned long int, AT_Int);
+	_define_atu_(ullint, unsigned long long int, AT_Int);
+	_define_atu_(usint, unsigned short int, AT_Int);
+
+	_define_atu_(float, float, AT_Float);
+	_define_atu_(double, double, AT_Float);
 
 #if (defined(_WIN64))
 	const ArgTypeUnit atu_ldouble = atu_double;
 #elif (defined(__x86_64__))
-	const ArgTypeUnit atu_ldouble(AT_Memory, sizeof(long double), { &atu_double, &atu_double });
+	const ArgTypeUnit atu_ldouble(AT_Memory, sizeof(long double), alignof(long double), { &atu_double, &atu_double });
 #endif
 
-	const ArgTypeUnit atu_pointer(AT_Int, sizeof(void*));
+	_define_atu_(pointer, void*, AT_Int);
 
-	const ArgTypeUnit atu_size(AT_Int, sizeof(size_t));
+	_define_atu_(size, size_t, AT_Int);
 
-	const ArgTypeUnit atu_int8(AT_Int, sizeof(int8_t));
-	const ArgTypeUnit atu_int16(AT_Int, sizeof(int16_t));
-	const ArgTypeUnit atu_int32(AT_Int, sizeof(int32_t));
-	const ArgTypeUnit atu_int64(AT_Int, sizeof(int64_t));
+	_define_atu_(int8, int8_t, AT_Int);
+	_define_atu_(int16, int16_t, AT_Int);
+	_define_atu_(int32, int32_t, AT_Int);
+	_define_atu_(int64, int64_t, AT_Int);
 
-	const ArgTypeUnit atu_uint8(AT_Int, sizeof(int8_t));
-	const ArgTypeUnit atu_uint16(AT_Int, sizeof(int16_t));
-	const ArgTypeUnit atu_uint32(AT_Int, sizeof(int32_t));
-	const ArgTypeUnit atu_uint64(AT_Int, sizeof(int64_t));
+	_define_atu_(uint8, int8_t, AT_Int);
+	_define_atu_(uint16, int16_t, AT_Int);
+	_define_atu_(uint32, int32_t, AT_Int);
+	_define_atu_(uint64, int64_t, AT_Int);
+
+#undef _define_atu_
 }

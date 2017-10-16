@@ -259,6 +259,7 @@ namespace JitFFI
 		AT_Int,
 		AT_Float,
 		AT_Memory,
+		AT_Struct,
 	};
 
 	struct ArgTypeUnit
@@ -266,17 +267,18 @@ namespace JitFFI
 		using TypeData = const ArgTypeUnit*;
 		using TypeDataList = std::vector<TypeData>;
 
-		explicit ArgTypeUnit(ArgType type, size_t size)
-			: type(type), size(unsigned(size)) {}
+		explicit ArgTypeUnit(ArgType type, size_t size, size_t align)
+			: type(type), size(unsigned(size)), align(unsigned(align)) {}
 
-		explicit ArgTypeUnit(ArgType type, size_t size, const TypeDataList &typedata)
-			: type(type), size(unsigned(size)), typedata(typedata) {}
+		explicit ArgTypeUnit(size_t size, size_t align, const TypeDataList &typedata)
+			: ArgTypeUnit(AT_Struct, size, align, typedata) {}
 
-		explicit ArgTypeUnit(size_t size, const TypeDataList &typedata)
-			: size(unsigned(size)), typedata(typedata) {}
+		explicit ArgTypeUnit(ArgType type, size_t size, size_t align, const TypeDataList &typedata)
+			: type(type), size(unsigned(size)), align(unsigned(align)), typedata(typedata) {}
 
 		ArgType type = AT_Unknown;
 		unsigned int size = 0;
+		unsigned int align = 0;
 		TypeDataList typedata;
 	};
 
@@ -314,6 +316,28 @@ namespace JitFFI
 		unsigned int count = 0;
 		uint64_t _data = 0;
 	};
+
+	template <typename T>
+	inline unsigned int push_memory(void *dat, size_t size, std::function<void(T)> func_push) {
+		assert(size < UINT32_MAX);
+		unsigned int count = static_cast<unsigned int>(size / sizeof(T));
+		unsigned int remsize = static_cast<unsigned int>(size % sizeof(T));
+
+		T *dp = reinterpret_cast<T*>(dat);
+
+		for (unsigned int i = 0; i != count; ++i) {
+			func_push(dp[i]);
+		}
+
+		if (remsize != 0) {
+			T v = 0;
+			byte *p = reinterpret_cast<byte*>(dp + count);
+			memcpy(&v, p, remsize);
+			func_push(v);
+		}
+
+		return count + ((remsize == 0) ? 0 : 1);
+	}
 }
 
 namespace JitFFI

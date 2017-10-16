@@ -55,25 +55,9 @@ namespace JitFFI
 				memlist.push_front(v);
 				return 1;
 			}
+
 			unsigned int push_memory(void *dat, size_t size) {
-				assert(size < UINT32_MAX);
-				unsigned int count = static_cast<unsigned int>(size / 8);
-				unsigned int remsize = static_cast<unsigned int>(size % 8);
-
-				uint64_t *dp = reinterpret_cast<uint64_t*>(dat);
-
-				for (unsigned int i = 0; i != count; ++i) {
-					push_memory(dp[i]);
-				}
-
-				if (remsize != 0) {
-					uint64_t v = 0;
-					byte *p = reinterpret_cast<byte*>(dp + count);
-					memcpy(&v, p, remsize);
-					push_memory(v);
-				}
-
-				return count + ((remsize == 0) ? 0 : 1);
+				return JitFFI::push_memory<uint64_t>(dat, size, [&](uint64_t v) { push_memory(v); });
 			}
 
 			bool get_next_memory(uint64_t &data) {

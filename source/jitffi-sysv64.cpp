@@ -44,31 +44,96 @@ namespace JitFFI
 			else
 				return false;
 		}
+
+		void push_int_data(ArgumentList &list, void *t, const ArgTypeUnit &atu);
+		void push_float_data(ArgumentList &list, void *t, const ArgTypeUnit &atu);
+		void push_memory_data(ArgumentList &list, void *t, const ArgTypeUnit &atu);
 		void push_struct_data(ArgumentList &list, void *t, const ArgTypeUnit &atu);
 
 		void push_data(ArgumentList &list, void *t, const ArgTypeUnit &atu) {
 			switch (atu.type) {
-			case AT_Unknown:
-			case AT_Memory:
-				push_struct_data(list, t, atu);
-				break;
 			case AT_Int:
+				push_int_data(list, t, atu);
+				break;
 			case AT_Float:
-				list.push(atu.type, convert_uint64(t, atu.size));
+				push_float_data(list, t, atu);
+				break;
+			case AT_Memory:
+				push_memory_data(list, t, atu);
+				break;
+			case AT_Struct:
+				if (need_pass_by_memory(atu.size)) {
+					push_memory_data(list, t, atu);
+				}
+				else {
+					push_struct_data(list, t, atu);
+				}
 				break;
 			default:
 				assert(false);
 			}
 		}
 
-		void push_struct_data(ArgumentList &list, void *t, const ArgTypeUnit &atu)
+		void push_int_data(ArgumentList &list, void *t, const ArgTypeUnit &atu) {
+			list.push(atu.type, convert_uint64(t, atu.size));
+		}
+		void push_float_data(ArgumentList &list, void *t, const ArgTypeUnit &atu) {
+			push_int_data(list, t, atu);
+		}
+		void push_memory_data(ArgumentList &list, void *t, const ArgTypeUnit &atu) {
+			list.push_memory(t, atu.size);
+		}
+
+		void push_struct_typelist(ArgTypeUnit::TypeDataList &newtypelist, const ArgTypeUnit::TypeDataList &typedata);
+		void push_struct_data_base(ArgumentList &list, void *t, size_t align, const ArgTypeUnit::TypeDataList &typedata);
+
+		void push_struct_data(ArgumentList &list, void *t, const ArgTypeUnit &atu) {
+			ArgTypeUnit::TypeDataList newtypelist;
+			push_struct_typelist(newtypelist, atu.typedata);
+			push_struct_data_base(list, t, atu.align, newtypelist);
+		}
+
+
+		ArgType get_type(ArgType t1, ArgType t2)
 		{
-			const ArgType init_type = (need_pass_by_memory(atu.size) || atu.type == AT_Memory) ? AT_Memory : AT_Unknown;
+			if (t1 == AT_Unknown)
+				return t2;
+			else if (t2 == AT_Unknown)
+				return t1;
+			else if (t1 == t2)
+				return t1;
+			else if (t1 == AT_Memory || t2 == AT_Memory)
+				return AT_Memory;
+			else if (t1 == AT_Int || t2 == AT_Int)
+				return AT_Int;
+			else
+				return AT_Float;
+		}
+
+		void push_struct_typelist(ArgTypeUnit::TypeDataList &newtypelist, const ArgTypeUnit::TypeDataList &typedata) {
+			for (auto type : typedata) {
+				assert(type->type != AT_Unknown);
+				if (type->type == AT_Struct) {
+					push_struct_typelist(newtypelist, type->typedata);
+				}
+				else {
+					newtypelist.push_back(type);
+				}
+			}
+		}
+
+		void push_struct_data_base(ArgumentList &list, void *t, size_t align, const ArgTypeUnit::TypeDataList &typedata)
+		{
+			const ArgType init_type = AT_Unknown;
 
 			NewStruct ns;
 
 			unsigned int i = 0;
-			auto get_next_post = get_next_post_f([=, &atu]() mutable { auto data = atu.typedata[i]; i++;  return data; });
+			auto get_next_post = get_next_post_f([=, &typedata]() mutable {
+				auto data = typedata[i];
+				i++;
+				return data->size;
+			}, align);
 
 			ArgType c_type = AT_Unknown;
 
@@ -78,7 +143,7 @@ namespace JitFFI
 				c_type = AT_Unknown;
 			};
 
-			for (auto &e : atu.typedata) {
+			for (auto &e : typedata) {
 				ArgType type = (init_type == AT_Unknown) ? e->type : AT_Memory;
 				unsigned int size = e->size;
 				unsigned int post = get_next_post();
@@ -88,7 +153,7 @@ namespace JitFFI
 
 				assert(size <= 8);
 
-				if (size >= 8) {
+				if (size == 8) {
 					if (c_type != AT_Unknown) {
 						push_and_clear();
 					}
@@ -123,6 +188,7 @@ namespace JitFFI
 				push_and_clear();
 			}
 		}
+
 		void add_argument(JitFuncCallerCreater &jfcc, ArgumentList &list)
 		{
 			ArgType type;

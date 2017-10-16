@@ -53,13 +53,13 @@ namespace JitFFI
 				push_struct_data_base(list, t, atu);
 			}
 			else {
-				list.push(atu.type == AT_Unknown ? AT_Int : atu.type, convert_uint64(t, atu.size));
+				list.push(atu.type == AT_Struct ? AT_Int : atu.type, convert_uint64(t, atu.size));
 			}
 		}
 
 		void push_data(ArgumentList &list, void *t, const ArgTypeUnit &atu) {
 			switch (atu.type) {
-			case AT_Unknown:
+			case AT_Struct:
 				push_struct_data(list, t, atu);
 				break;
 			case AT_Memory:
