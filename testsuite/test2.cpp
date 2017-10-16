@@ -99,19 +99,6 @@ void print_struct7(type7 t)
 }
 
 typedef struct {
-	uint8_t d0;
-	uint8_t d1;
-} type7x;
-
-const ArgTypeUnit atu_type7x(sizeof(type7x), alignof(type7x), { &atu_uint8, &atu_uint8 });
-
-void print_struct7x(type7x t)
-{
-	print(t.d0);
-	print(t.d1);
-}
-
-typedef struct {
 	type1 d0;
 	type2 d1;
 } type8;
@@ -122,6 +109,30 @@ void print_struct8(type8 t)
 {
 	print_struct1(t.d0);
 	print_struct2(t.d1);
+}
+
+typedef struct {
+	char d[7];
+} type9;
+
+const ArgTypeUnit atu_type9(sizeof(type9), alignof(type9), { &atu_char, &atu_char, &atu_char, &atu_char, &atu_char, &atu_char, &atu_char });
+
+void print_struct9(type9 t)
+{
+	printf("(%d %d %d %d %d %d %d)\n", t.d[0], t.d[1], t.d[2], t.d[3], t.d[4], t.d[5], t.d[6]);
+}
+
+typedef struct {
+	type9 d0;
+	type9 d1;
+} type10;
+
+const ArgTypeUnit atu_type10(sizeof(type10), alignof(type10), { &atu_type9, &atu_type9 });
+
+void print_struct10(type10 t)
+{
+	print_struct9(t.d0);
+	print_struct9(t.d1);
 }
 
 void Call_1(JitFuncCreater &jfc)
@@ -180,6 +191,20 @@ void Call_8(JitFuncCreater &jfc)
 	CurrABI::create_function_caller(jfc, &print_struct8, { &t }, { &atu_type8 });
 }
 
+void Call_9(JitFuncCreater &jfc)
+{
+	type9 t = { 1, 2, 3, 4, 5, 6, 7 };
+
+	CurrABI::create_function_caller(jfc, &print_struct9, { &t }, { &atu_type9 });
+}
+
+void Call_10(JitFuncCreater &jfc)
+{
+	type10 t = { type9 { 1, 2, 3, 4, 5, 6, 7 }, type9{ 8, 9, 10, 11, 12, 13, 14 } };
+
+	CurrABI::create_function_caller(jfc, &print_struct10, { &t }, { &atu_type10 });
+}
+
 int main(int argc, char *argv[])
 {
 	Call(Call_1);
@@ -190,4 +215,6 @@ int main(int argc, char *argv[])
 	Call(Call_6);
 	Call(Call_7);
 	Call(Call_8);
+	Call(Call_9);
+	Call(Call_10);
 }

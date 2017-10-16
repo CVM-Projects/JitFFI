@@ -84,15 +84,25 @@ namespace JitFFI
 			list.push_memory(t, atu.size);
 		}
 
-		void push_struct_typelist(ArgTypeUnit::TypeDataList &newtypelist, const ArgTypeUnit::TypeDataList &typedata);
-		void push_struct_data_base(ArgumentList &list, void *t, size_t align, const ArgTypeUnit::TypeDataList &typedata);
+		struct ArgTypeInfo
+		{
+			ArgType type;
+			unsigned int num;
+			unsigned int size;
+			unsigned int post;
+		};
+		void create_struct_typelist(ArgTypeUnit::TypeDataList &newtypelist, const ArgTypeUnit::TypeDataList &typedata);
+		void get_argtypeinfo_list(std::list<ArgTypeInfo> &list, size_t align, const ArgTypeUnit::TypeDataList &typedata);
+		void push_struct_data_base(ArgumentList &list, void *t, const std::list<ArgTypeInfo> &nlist);
 
 		void push_struct_data(ArgumentList &list, void *t, const ArgTypeUnit &atu) {
 			ArgTypeUnit::TypeDataList newtypelist;
-			push_struct_typelist(newtypelist, atu.typedata);
-			push_struct_data_base(list, t, atu.align, newtypelist);
-		}
+			std::list<ArgTypeInfo> infolist;
 
+			create_struct_typelist(newtypelist, atu.typedata);
+			get_argtypeinfo_list(infolist, atu.align, newtypelist);
+			push_struct_data_base(list, t, infolist);
+		}
 
 		ArgType get_type(ArgType t1, ArgType t2)
 		{
@@ -110,11 +120,11 @@ namespace JitFFI
 				return AT_Float;
 		}
 
-		void push_struct_typelist(ArgTypeUnit::TypeDataList &newtypelist, const ArgTypeUnit::TypeDataList &typedata) {
+		void create_struct_typelist(ArgTypeUnit::TypeDataList &newtypelist, const ArgTypeUnit::TypeDataList &typedata) {
 			for (auto type : typedata) {
 				assert(type->type != AT_Unknown);
 				if (type->type == AT_Struct) {
-					push_struct_typelist(newtypelist, type->typedata);
+					create_struct_typelist(newtypelist, type->typedata);
 				}
 				else {
 					newtypelist.push_back(type);
@@ -122,34 +132,54 @@ namespace JitFFI
 			}
 		}
 
-		void push_struct_data_base(ArgumentList &list, void *t, size_t align, const ArgTypeUnit::TypeDataList &typedata)
+		class NewSize
 		{
-			const ArgType init_type = AT_Unknown;
+		public:
+			bool push(unsigned int size) {
+				assert(size == 1 || size % 2 == 0);
+				if (_size + size > 8)
+					return false;
+				if (_size <= 8 - size) {
+					_size += size + (_size % size);
+				}
+				else {
+					return false;
+				}
+				_num++;
+				return true;
+			}
 
-			NewStruct ns;
+			void clear() {
+				_size = 0;
+				_num = 0;
+			}
 
-			unsigned int i = 0;
-			auto get_next_post = get_next_post_f([=, &typedata]() mutable {
-				auto data = typedata[i];
-				i++;
-				return data->size;
-			}, align);
+			unsigned int size() const {
+				return _size;
+			}
+			unsigned int num() const {
+				return _num;
+			}
 
+		private:
+			unsigned int _size = 0;
+			unsigned int _num = 0;
+		};
+
+		void get_argtypeinfo_list(std::list<ArgTypeInfo> &list, size_t align, const ArgTypeUnit::TypeDataList &typedata)
+		{
+			NewSize ns;
 			ArgType c_type = AT_Unknown;
 
 			auto push_and_clear = [&]() {
-				list.push(c_type, ns.data());
+				list.push_back({ c_type, ns.num(), ns.size() });
 				ns.clear();
 				c_type = AT_Unknown;
 			};
 
-			for (auto &e : typedata) {
-				ArgType type = (init_type == AT_Unknown) ? e->type : AT_Memory;
+			for (const auto &e : typedata) {
+				ArgType type = e->type;
 				unsigned int size = e->size;
-				unsigned int post = get_next_post();
-
-				//printf("[[[%d]]]", post);
-				byte *p = (byte*)t + post;
 
 				assert(size <= 8);
 
@@ -157,12 +187,12 @@ namespace JitFFI
 					if (c_type != AT_Unknown) {
 						push_and_clear();
 					}
-					list.push(type, convert_uint64(p, size));
+					list.push_back({ type, 1, 8 });
 				}
 				else {
-					if (!ns.push(p, size)) {
+					if (!ns.push(size)) {
 						push_and_clear();
-						ns.push(p, size);
+						ns.push(size);
 					}
 					switch (type) {
 					case AT_Int:
@@ -186,6 +216,38 @@ namespace JitFFI
 
 			if (c_type != AT_Unknown) {
 				push_and_clear();
+			}
+
+			unsigned int i = 0;
+			auto get_next_post = get_next_post_f([=, &typedata]() mutable {
+				auto data = typedata.at(i);
+				i++;
+				return data->size;
+			}, align);
+
+			unsigned int post = 0;
+			for (auto &e : list) {
+				unsigned int num = e.num;
+				assert(num != 0);
+				unsigned int rpost = get_next_post();
+				while (--num) {
+					post += get_next_post();
+				}
+				e.post = rpost;
+			}
+		}
+
+		void push_struct_data_base(ArgumentList &list, void *t, const std::list<ArgTypeInfo> &nlist)
+		{
+			byte *p = (byte*)t;
+
+			for (const auto &e : nlist) {
+				ArgType type = e.type;
+				unsigned int num = e.num;
+				unsigned int size = e.size;
+				assert(num != 0);
+				assert(size != 0);
+				JitFFI::push_memory<uint64_t>(p + e.post, size, [&](uint64_t v) { list.push(type, v); });
 			}
 		}
 
