@@ -43,36 +43,6 @@ namespace JitFFI
 		inline bool need_pass_by_pointer(size_t n) {
 			return (n != 1 && n != 2 && n != 4 && n != 8);
 		}
-		void push_struct_data_base(ArgumentList &list, void *t, const ArgTypeUnit &atu) {
-			unsigned int offset = list.push_memory(t, atu.size);
-			list.push(AT_Memory, offset);
-		}
-
-		void push_struct_data(ArgumentList &list, void *t, const ArgTypeUnit &atu) {
-			if (need_pass_by_pointer(atu.size)) {
-				push_struct_data_base(list, t, atu);
-			}
-			else {
-				list.push(atu.type == AT_Struct ? AT_Int : atu.type, convert_uint64(t, atu.size));
-			}
-		}
-
-		void push_data(ArgumentList &list, void *t, const ArgTypeUnit &atu) {
-			switch (atu.type) {
-			case AT_Struct:
-				push_struct_data(list, t, atu);
-				break;
-			case AT_Memory:
-				push_struct_data_base(list, t, atu);
-				break;
-			case AT_Int:
-			case AT_Float:
-				list.push(atu.type, convert_uint64(t, atu.size));
-				break;
-			default:
-				assert(false);
-			}
-		}
 
 		void add_argument(JitFuncCallerCreater &jfcc, ArgumentList &list) {
 			ArgType type;
@@ -107,13 +77,96 @@ namespace JitFFI
 
 		//
 
+		ArgTypeInfo::Data get_argtypeinfo_data(const ArgTypeUnit &atu) {
+			switch (atu.type) {
+			case AT_Int:
+				return { ArgTypeInfo::op_int, atu.size };
+			case AT_Float:
+				return { ArgTypeInfo::op_float, atu.size };
+				break;
+			case AT_Memory:
+				return { ArgTypeInfo::op_push_pointer, atu.size };
+				break;
+			case AT_Struct:
+				if (need_pass_by_pointer(atu.size)) {
+					return { ArgTypeInfo::op_push_pointer, atu.size };
+				}
+				else {
+					return { ArgTypeInfo::op_int, atu.size };
+				}
+				break;
+			default:
+				assert(false);
+			}
+			return { ArgTypeInfo::op_int, 0xcccccccc };
+		}
+
+		//
+
+		ArgTypeInfo create_argtypeinfo(const ArgTypeList &atlist)
+		{
+			ArgTypeInfo ati;
+			for (auto &type : atlist) {
+				ati.typelist.push_back(get_argtypeinfo_data(*type));
+			}
+			return ati;
+		}
+
+		ArgumentList create_argumentlist(const ArgTypeInfo &ati, const ArgDataList &datalist) {
+			ArgumentList list;
+			auto iter = datalist.begin();
+			assert(ati.typelist.size() == datalist.size());
+			for (auto &type : ati.typelist) {
+				switch (type.first) {
+				case ArgTypeInfo::op_int:
+					list.push(AT_Int, convert_uint64(*iter, type.second));
+					break;
+				case ArgTypeInfo::op_float:
+					list.push(AT_Float, convert_uint64(*iter, type.second));
+					break;
+				case ArgTypeInfo::op_push:
+					list.push(AT_Int, convert_uint64(*iter, type.second));
+					break;
+				case ArgTypeInfo::op_push_pointer: {
+					unsigned int offset = list.push_memory(*iter, type.second);
+					list.push(AT_Memory, offset);
+					break;
+				}
+				default:
+					assert(false);
+					break;
+				}
+				++iter;
+			}
+			return list;
+		}
+
+
 		void create_function_caller(JitFuncCreater &jfc, ArgumentList &list, void *func)
 		{
-			create_function_caller_base<ArgumentList, JitFuncCallerCreaterPlatform>(jfc, list, func);
+			JitFuncCallerCreaterPlatform jfcc(jfc, func);
+			jfcc.push_rbx();
+			byte &v = jfcc.sub_rsp_unadjusted();
+
+			add_argument(jfcc, list);
+
+			jfcc.call();
+
+			jfcc.add_rsp();
+			jfcc.adjust_sub_rsp(v);
+			jfcc.pop_rbx();
+			jfcc.ret();
 		}
+
 		void create_function_caller(JitFuncCreater &jfc, void *func, const ArgDataList &adlist, const ArgTypeList &atlist)
 		{
-			create_function_caller_base<ArgumentList, JitFuncCallerCreaterPlatform>(jfc, func, adlist, atlist);
+			assert(adlist.size() == atlist.size());
+			assert(adlist.size() < UINT32_MAX);
+
+			ArgTypeInfo ati = create_argtypeinfo(atlist);
+			ArgumentList list = create_argumentlist(ati, adlist);
+
+			create_function_caller(jfc, list, func);
 		}
 	}
 }

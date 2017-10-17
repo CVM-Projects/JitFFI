@@ -94,8 +94,20 @@ namespace JitFFI
 			std::list<uint64_t> memlist;
 		};
 
-		void push_data(ArgumentList &list, void *t, const ArgTypeUnit &atu);
-		void add_argument(JitFuncCallerCreater &jfcc, ArgumentList &list);
+		struct ArgTypeInfo
+		{
+			enum OP
+			{
+				op_int,
+				op_float,
+				op_push,
+				op_push_pointer,
+			};
+			using Size = unsigned int;
+			using Data = std::pair<OP, Size>;
+
+			std::vector<Data> typelist;
+		};
 	}
 }
 #endif

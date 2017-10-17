@@ -98,8 +98,30 @@ namespace JitFFI
 			unsigned int _memory_count = 0;
 		};
 
-		void push_data(ArgumentList &list, void *t, const ArgTypeUnit &atu);
-		void add_argument(JitFuncCallerCreater &jfcc, ArgumentList &list);
+		struct ArgStructTypeInfoUnit
+		{
+			ArgType type;
+			unsigned int num;
+			unsigned int size;
+			unsigned int post;
+		};
+		using ArgStructTypeInfo = std::list<ArgStructTypeInfoUnit>;
+
+		struct ArgTypeInfo
+		{
+			enum OP
+			{
+				op_int,
+				op_float,
+				op_memory,
+				op_struct,
+			};
+			using Size = unsigned int;
+			using Data = std::pair<OP, Size>;
+
+			std::vector<Data> typelist;
+			std::vector<ArgStructTypeInfo> structlist;
+		};
 	}
 }
 #endif

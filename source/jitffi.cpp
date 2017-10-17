@@ -122,67 +122,6 @@ namespace JitFFI
 
 namespace JitFFI
 {
-	bool NewStruct::push(byte * dat, unsigned int size) {
-		assert(size != 0);
-		if (count + size > 8)
-			return false;
-		if (size == 8) {
-			if (count == 0) {
-				write_uint64(0, dat);
-				count = 8;
-			}
-			else {
-				return false;
-			}
-		}
-		else if (size == 4) {
-			if (count == 0) {
-				write_uint32(0, dat);
-				count = 4;
-			}
-			else if (count <= 4) {
-				write_uint32(1, dat);
-				count = 8;
-			}
-			else {
-				return false;
-			}
-		}
-		else if (size == 2) {
-			if (count == 0) {
-				write_uint16(0, dat);
-				count = 2;
-			}
-			else if (count <= 2) {
-				write_uint16(1, dat);
-				count = 4;
-			}
-			else if (count <= 4) {
-				write_uint16(2, dat);
-				count = 6;
-			}
-			else if (count <= 6) {
-				write_uint16(3, dat);
-				count = 8;
-			}
-			else {
-				return false;
-			}
-		}
-		else if (size == 1) {
-			write_byte(count, dat);
-			count += 1;
-		}
-		else {
-			assert(false);
-			return false;
-		}
-		return true;
-	}
-}
-
-namespace JitFFI
-{
 #define _define_atu_(name, type, at_type) const ArgTypeUnit atu_##name(at_type, sizeof(type), alignof(type))
 
 	_define_atu_(bool, bool, AT_Int);

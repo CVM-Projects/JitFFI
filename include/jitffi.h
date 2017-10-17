@@ -208,6 +208,43 @@ namespace JitFFI
 
 namespace JitFFI
 {
+	using byte = uint8_t;
+
+	enum ArgType
+	{
+		AT_Unknown,
+		AT_Int,
+		AT_Float,
+		AT_Memory,
+		AT_Struct,
+	};
+
+	struct ArgTypeUnit
+	{
+		using TypeData = const ArgTypeUnit*;
+		using TypeDataList = std::vector<TypeData>;
+
+		explicit ArgTypeUnit(ArgType type, size_t size, size_t align)
+			: type(type), size(unsigned(size)), align(unsigned(align)) {}
+
+		explicit ArgTypeUnit(size_t size, size_t align, const TypeDataList &typedata)
+			: ArgTypeUnit(AT_Struct, size, align, typedata) {}
+
+		explicit ArgTypeUnit(ArgType type, size_t size, size_t align, const TypeDataList &typedata)
+			: type(type), size(unsigned(size)), align(unsigned(align)), typedata(typedata) {}
+
+		ArgType type = AT_Unknown;
+		unsigned int size = 0;
+		unsigned int align = 0;
+		TypeDataList typedata;
+	};
+
+	using ArgDataList = std::list<void*>;
+	using ArgTypeList = std::list<const ArgTypeUnit*>;
+}
+
+namespace JitFFI
+{
 	// convert_uintxx:
 	//    This function can convert to a match size integer of value.
 
@@ -251,71 +288,12 @@ namespace JitFFI
 
 namespace JitFFI
 {
-	using byte = uint8_t;
-
-	enum ArgType
-	{
-		AT_Unknown,
-		AT_Int,
-		AT_Float,
-		AT_Memory,
-		AT_Struct,
-	};
-
-	struct ArgTypeUnit
-	{
-		using TypeData = const ArgTypeUnit*;
-		using TypeDataList = std::vector<TypeData>;
-
-		explicit ArgTypeUnit(ArgType type, size_t size, size_t align)
-			: type(type), size(unsigned(size)), align(unsigned(align)) {}
-
-		explicit ArgTypeUnit(size_t size, size_t align, const TypeDataList &typedata)
-			: ArgTypeUnit(AT_Struct, size, align, typedata) {}
-
-		explicit ArgTypeUnit(ArgType type, size_t size, size_t align, const TypeDataList &typedata)
-			: type(type), size(unsigned(size)), align(unsigned(align)), typedata(typedata) {}
-
-		ArgType type = AT_Unknown;
-		unsigned int size = 0;
-		unsigned int align = 0;
-		TypeDataList typedata;
-	};
-
-	using ArgDataList = std::list<void*>;
-	using ArgTypeList = std::list<const ArgTypeUnit*>;
-
-	class NewStruct
-	{
-	public:
-		bool push(byte *dat, unsigned int size);
-
-		void write_uint64(unsigned int i, byte *dat) {
-			((uint64_t*)&_data)[i] = *(uint64_t*)dat;
-		}
-		void write_uint32(unsigned int i, byte *dat) {
-			((uint32_t*)&_data)[i] = *(uint32_t*)dat;
-		}
-		void write_uint16(unsigned int i, byte *dat) {
-			((uint16_t*)&_data)[i] = *(uint16_t*)dat;
-		}
-		void write_byte(unsigned int i, byte *dat) {
-			((byte*)&_data)[i] = *dat;
-		}
-
-		void clear() {
-			count = 0;
-			_data = 0;
-		}
-
-		uint64_t data() const {
-			return _data;
-		}
-
-	private:
-		unsigned int count = 0;
-		uint64_t _data = 0;
-	};
+	inline unsigned int get_value_count(size_t size, size_t psize) {
+		assert(size < UINT32_MAX);
+		unsigned int count = static_cast<unsigned int>(size / psize);
+		unsigned int remsize = static_cast<unsigned int>(size % psize);
+		return count + ((remsize == 0) ? 0 : 1);
+	}
 
 	template <typename T>
 	inline unsigned int push_memory(void *dat, size_t size, std::function<void(T)> func_push) {
@@ -336,7 +314,7 @@ namespace JitFFI
 			func_push(v);
 		}
 
-		return count + ((remsize == 0) ? 0 : 1);
+		return get_value_count(size, sizeof(T));
 	}
 }
 
@@ -344,9 +322,14 @@ namespace JitFFI
 {
 #define _DECLARE_create_function_caller \
 	void create_function_caller(JitFuncCreater &jfc, void *func, const ArgDataList &adlist, const ArgTypeList &atlist); \
+	void create_function_caller(JitFuncCreater &jfc, void *func, const ArgTypeList &atlist); \
 	template <typename _FTy> \
 	void create_function_caller(JitFuncCreater &jfc, _FTy *func, const ArgDataList &adlist, const ArgTypeList &atlist) { \
 		create_function_caller(jfc, (void*)func, adlist, atlist); \
+	} \
+	template <typename _FTy> \
+	void create_function_caller(JitFuncCreater &jfc, _FTy *func, const ArgTypeList &atlist) { \
+		create_function_caller(jfc, (void*)func, atlist); \
 	}
 
 	namespace SysV64 { _DECLARE_create_function_caller }
