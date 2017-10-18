@@ -192,7 +192,7 @@ namespace JitFFI
 			return Struct::get_argstructtypeinfo(atu);
 		}
 
-		void push_struct_data(ArgumentList &list, void *t, const ArgStructTypeInfo &structinfo) {
+		void push_struct_data(ArgumentList &list, const void *t, const ArgStructTypeInfo &structinfo) {
 			byte *p = (byte*)t;
 
 			for (const auto &e : structinfo) {
@@ -202,29 +202,6 @@ namespace JitFFI
 				assert(num != 0);
 				assert(size != 0);
 				JitFFI::push_memory<uint64_t>(p + e.post, size, [&](uint64_t v) { list.push(type, v); });
-			}
-		}
-
-		void add_argument(JitFuncCallerCreater &jfcc, ArgumentList &list) {
-			ArgType type;
-			uint64_t data;
-
-			jfcc.init_addarg_count(list.get_int_count(), list.get_float_count(), list.get_memory_count());
-
-			while (list.get_next(type, data)) {
-				switch (type) {
-				case AT_Int:
-					jfcc.add_int(data);
-					break;
-				case AT_Float:
-					jfcc.add_double(data);
-					break;
-				case AT_Memory:
-					jfcc.push(data);
-					break;
-				default:
-					assert(false);
-				}
 			}
 		}
 
@@ -297,7 +274,38 @@ namespace JitFFI
 			return list;
 		}
 
+		void add_argument(JitFuncCallerCreater &jfcc, ArgumentList &list) {
+			ArgType type;
+			uint64_t data;
+
+			jfcc.init_addarg_count(list.get_int_count(), list.get_float_count(), list.get_memory_count());
+
+			while (list.get_next(type, data)) {
+				switch (type) {
+				case AT_Int:
+					jfcc.add_int(data);
+					break;
+				case AT_Float:
+					jfcc.add_double(data);
+					break;
+				case AT_Memory:
+					jfcc.push(data);
+					break;
+				default:
+					assert(false);
+				}
+			}
+		}
+
 		//
+
+		ArgumentInfo get_argumentinfo(const ArgTypeList &atlist) {
+			ArgTypeInfo *p_ati = new ArgTypeInfo(create_argtypeinfo(atlist));
+			return ArgumentInfo(P_SysV64, p_ati);
+		}
+		const ArgTypeInfo& get_argtypeinfo(const ArgumentInfo &argumentinfo) {
+			return argumentinfo.data<P_SysV64, ArgTypeInfo>();
+		}
 
 		void create_function_caller(JitFuncCreater &jfc, ArgumentList &list, void *func)
 		{
@@ -312,13 +320,12 @@ namespace JitFFI
 			jfcc.adjust_sub_rsp(v);
 			jfcc.ret();
 		}
-		void create_function_caller(JitFuncCreater &jfc, void *func, const ArgDataList &adlist, const ArgTypeList &atlist)
+
+		void create_function_caller(JitFuncCreater &jfc, void *func, const ArgumentInfo &argumentinfo, const ArgDataList &adlist)
 		{
-			assert(adlist.size() == atlist.size());
 			assert(adlist.size() < UINT32_MAX);
 
-			ArgTypeInfo ati = create_argtypeinfo(atlist);
-			ArgumentList list = create_argumentlist(ati, adlist);
+			ArgumentList list = create_argumentlist(get_argtypeinfo(argumentinfo), adlist);
 
 			create_function_caller(jfc, list, func);
 		}

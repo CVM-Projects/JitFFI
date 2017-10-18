@@ -44,37 +44,6 @@ namespace JitFFI
 			return (n != 1 && n != 2 && n != 4 && n != 8);
 		}
 
-		void add_argument(JitFuncCallerCreater &jfcc, ArgumentList &list) {
-			ArgType type;
-			uint64_t data;
-
-			jfcc.init_addarg_count(list.size(), 0, 0);
-
-			while (list.get_next_memory(data)) {
-				jfcc.push(data);
-			}
-
-			jfcc.mov_rbx_rsp();
-
-			while (list.get_next(type, data)) {
-				switch (type) {
-				case AT_Int:
-					jfcc.add_int(data);
-					break;
-				case AT_Float:
-					jfcc.add_double(data);
-					break;
-				case AT_Memory:
-					jfcc.add_int_rbx();
-					assert(data * 8 < UINT32_MAX);
-					jfcc.sub_rbx(static_cast<uint32_t>(data * 8));
-					break;
-				default:
-					assert(false);
-				}
-			}
-		}
-
 		//
 
 		ArgTypeInfo::Data get_argtypeinfo_data(const ArgTypeUnit &atu) {
@@ -141,6 +110,44 @@ namespace JitFFI
 			return list;
 		}
 
+		void add_argument(JitFuncCallerCreater &jfcc, ArgumentList &list) {
+			ArgType type;
+			uint64_t data;
+
+			jfcc.init_addarg_count(list.size(), 0, 0);
+
+			while (list.get_next_memory(data)) {
+				jfcc.push(data);
+			}
+
+			jfcc.mov_rbx_rsp();
+
+			while (list.get_next(type, data)) {
+				switch (type) {
+				case AT_Int:
+					jfcc.add_int(data);
+					break;
+				case AT_Float:
+					jfcc.add_double(data);
+					break;
+				case AT_Memory:
+					jfcc.add_int_rbx();
+					assert(data * 8 < UINT32_MAX);
+					jfcc.sub_rbx(static_cast<uint32_t>(data * 8));
+					break;
+				default:
+					assert(false);
+				}
+			}
+		}
+
+		ArgumentInfo get_argumentinfo(const ArgTypeList &atlist) {
+			ArgTypeInfo *p_ati = new ArgTypeInfo(create_argtypeinfo(atlist));
+			return ArgumentInfo(P_MS64, p_ati);
+		}
+		const ArgTypeInfo& get_argtypeinfo(const ArgumentInfo &argumentinfo) {
+			return argumentinfo.data<P_MS64, ArgTypeInfo>();
+		}
 
 		void create_function_caller(JitFuncCreater &jfc, ArgumentList &list, void *func)
 		{
@@ -158,13 +165,11 @@ namespace JitFFI
 			jfcc.ret();
 		}
 
-		void create_function_caller(JitFuncCreater &jfc, void *func, const ArgDataList &adlist, const ArgTypeList &atlist)
+		void create_function_caller(JitFuncCreater &jfc, void *func, const ArgumentInfo &argumentinfo, const ArgDataList &adlist)
 		{
-			assert(adlist.size() == atlist.size());
 			assert(adlist.size() < UINT32_MAX);
 
-			ArgTypeInfo ati = create_argtypeinfo(atlist);
-			ArgumentList list = create_argumentlist(ati, adlist);
+			ArgumentList list = create_argumentlist(get_argtypeinfo(argumentinfo), adlist);
 
 			create_function_caller(jfc, list, func);
 		}

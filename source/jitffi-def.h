@@ -1,5 +1,6 @@
 #pragma once
 #include "jitffi.h"
+#include <algorithm>
 
 namespace JitFFI
 {

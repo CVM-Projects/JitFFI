@@ -211,6 +211,21 @@ void callerNX(int64 a0, double b0, int64 a1, double b1, int64 a2, double b2, int
 	print_num(b3);
 }
 
+void function_1(long double v)
+{
+	print(v);
+}
+
+int function_2(int a, float b, double c, long double d)
+{
+	print(a);
+	print(b);
+	print(c);
+	print(d);
+
+	return 0;
+}
+
 void Call_1(JitFuncCreater &jfc)
 {
 	double v0 = 1.0;
@@ -218,9 +233,11 @@ void Call_1(JitFuncCreater &jfc)
 	double v2 = 3.0;
 	double v3 = 4.0;
 
-	CurrABI::create_function_caller(jfc, &callerX4,
-	{ &v0, &v1, &v2, &v3 },
-	{ &atu_double, &atu_double, &atu_double, &atu_double });
+	ArgDataList dl = { &v0, &v1, &v2, &v3 };
+	ArgTypeList tl = { &atu_double, &atu_double, &atu_double, &atu_double };
+
+	ArgumentInfo arginfo = CurrABI::get_argumentinfo(tl);
+	CurrABI::create_function_caller(jfc, &callerX4, arginfo, dl);
 }
 
 void Call_2(JitFuncCreater &jfc)
@@ -237,7 +254,8 @@ void Call_2(JitFuncCreater &jfc)
 		tl.push_back(&atu_uint64);
 	}
 
-	CurrABI::create_function_caller(jfc, &callerN10, dl, tl);
+	ArgumentInfo arginfo = CurrABI::get_argumentinfo(tl);
+	CurrABI::create_function_caller(jfc, &callerN10, arginfo, dl);
 }
 
 void Call_3(JitFuncCreater &jfc)
@@ -260,7 +278,28 @@ void Call_3(JitFuncCreater &jfc)
 		dl.push_back(&arr[i]);
 	}
 
-	CurrABI::create_function_caller(jfc, &callerNX, dl, tl);
+	ArgumentInfo arginfo = CurrABI::get_argumentinfo(tl);
+	CurrABI::create_function_caller(jfc, &callerNX, arginfo, dl);
+}
+
+
+void Call_4(JitFuncCreater &jfc)
+{
+	long double ld = 2.5;
+
+	ArgumentInfo arginfo = CurrABI::get_argumentinfo({ &atu_ldouble });
+	CurrABI::create_function_caller(jfc, &function_1, arginfo, { &ld });
+}
+
+void Call_5(JitFuncCreater &jfc)
+{
+	int i = 5;
+	float f = 6.75;
+	double d = 8.0;
+	long double ld = 2.5;
+
+	ArgumentInfo arginfo = CurrABI::get_argumentinfo({ &atu_int, &atu_float, &atu_double, &atu_ldouble });
+	CurrABI::create_function_caller(jfc, &function_2, arginfo, { &i, &f, &d, &ld });
 }
 
 int main(int argc, char *argv[])
@@ -268,6 +307,8 @@ int main(int argc, char *argv[])
 	Call(Call_1);
 	Call(Call_2);
 	Call(Call_3);
+	Call(Call_4);
+	Call(Call_5);
 
 	printf("Done.\n");
 

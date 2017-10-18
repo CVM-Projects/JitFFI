@@ -64,7 +64,7 @@ namespace JitFFI
 				_memory_count++;
 			}
 
-			void push_memory(void *dat, size_t size) {
+			void push_memory(const void *dat, size_t size) {
 				JitFFI::push_memory<uint64_t>(dat, size, [&](uint64_t v) { push_memory(v); });
 			}
 

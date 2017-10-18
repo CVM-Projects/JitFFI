@@ -1,11 +1,15 @@
+// JitFFI Library
+// * jitffi.h
+
 #pragma once
+#ifndef _JITFFI_H_
+#define _JITFFI_H_
 #include <memory>
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <list>
-#include <algorithm>
 #include <vector>
 
 namespace JitFFI
@@ -239,8 +243,43 @@ namespace JitFFI
 		TypeDataList typedata;
 	};
 
-	using ArgDataList = std::list<void*>;
+	using ArgDataList = std::list<const void*>;
 	using ArgTypeList = std::list<const ArgTypeUnit*>;
+}
+
+namespace JitFFI
+{
+	enum Platform
+	{
+		P_MS64,
+		P_SysV64,
+	};
+}
+
+namespace JitFFI
+{
+	class ArgumentInfo
+	{
+	public:
+		template <typename T>
+		explicit ArgumentInfo(Platform platform, T *data) :
+#ifndef NDEBUG
+			_platform(platform),
+#endif
+			_data(data, [](void *p) { delete (T*)p; }) {}
+
+		template <Platform P, typename T>
+		const T& data() const {
+			assert(P == _platform);
+			return *(T*)_data.get();
+		}
+
+	private:
+#ifndef NDEBUG
+		Platform _platform;
+#endif
+		std::shared_ptr<void> _data;
+	};
 }
 
 namespace JitFFI
@@ -296,12 +335,12 @@ namespace JitFFI
 	}
 
 	template <typename T>
-	inline unsigned int push_memory(void *dat, size_t size, std::function<void(T)> func_push) {
+	inline unsigned int push_memory(const void *dat, size_t size, std::function<void(T)> func_push) {
 		assert(size < UINT32_MAX);
 		unsigned int count = static_cast<unsigned int>(size / sizeof(T));
 		unsigned int remsize = static_cast<unsigned int>(size % sizeof(T));
 
-		T *dp = reinterpret_cast<T*>(dat);
+		const T *dp = reinterpret_cast<const T*>(dat);
 
 		for (unsigned int i = 0; i != count; ++i) {
 			func_push(dp[i]);
@@ -309,7 +348,7 @@ namespace JitFFI
 
 		if (remsize != 0) {
 			T v = 0;
-			byte *p = reinterpret_cast<byte*>(dp + count);
+			const byte *p = reinterpret_cast<const byte*>(dp + count);
 			memcpy(&v, p, remsize);
 			func_push(v);
 		}
@@ -320,16 +359,17 @@ namespace JitFFI
 
 namespace JitFFI
 {
+	// get_argumentinfo       = ArgTypeList                            -> ArgumentInfo
+	// create_function_caller = (Func ArgumentInfo)                    -> function<void (void*, ArgDataList)>;
+	// create_function_caller = (Func ArgumentInfo ArgDataList)        -> function<void (void*)>;
+	// create_function_caller = (Func ArgumentInfo ArgDataListPartial) -> function<void (void*, ArgDataListPartial)>;
+
 #define _DECLARE_create_function_caller \
-	void create_function_caller(JitFuncCreater &jfc, void *func, const ArgDataList &adlist, const ArgTypeList &atlist); \
-	void create_function_caller(JitFuncCreater &jfc, void *func, const ArgTypeList &atlist); \
+	ArgumentInfo get_argumentinfo(const ArgTypeList &atlist); \
+	void create_function_caller(JitFuncCreater &jfc, void *func, const ArgumentInfo &argumentinfo, const ArgDataList &adlist); \
 	template <typename _FTy> \
-	void create_function_caller(JitFuncCreater &jfc, _FTy *func, const ArgDataList &adlist, const ArgTypeList &atlist) { \
-		create_function_caller(jfc, (void*)func, adlist, atlist); \
-	} \
-	template <typename _FTy> \
-	void create_function_caller(JitFuncCreater &jfc, _FTy *func, const ArgTypeList &atlist) { \
-		create_function_caller(jfc, (void*)func, atlist); \
+	void create_function_caller(JitFuncCreater &jfc, _FTy *func, const ArgumentInfo &argumentinfo, const ArgDataList &adlist) { \
+		create_function_caller(jfc, (void*)func, argumentinfo, adlist); \
 	}
 
 	namespace SysV64 { _DECLARE_create_function_caller }
@@ -377,8 +417,9 @@ namespace JitFFI
 	extern const ArgTypeUnit atu_uint64;
 }
 
-#if (defined (_WIN64))
-#	define CurrABI MS64
-#elif (defined (__x86_64__))
-#	define CurrABI SysV64
+#	if (defined (_WIN64))
+#		define CurrABI MS64
+#	elif (defined (__x86_64__))
+#		define CurrABI SysV64
+#	endif
 #endif

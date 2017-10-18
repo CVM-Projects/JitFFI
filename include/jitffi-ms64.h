@@ -56,7 +56,7 @@ namespace JitFFI
 				return 1;
 			}
 
-			unsigned int push_memory(void *dat, size_t size) {
+			unsigned int push_memory(const void *dat, size_t size) {
 				return JitFFI::push_memory<uint64_t>(dat, size, [&](uint64_t v) { push_memory(v); });
 			}
 

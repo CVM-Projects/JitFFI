@@ -135,74 +135,82 @@ void print_struct10(type10 t)
 	print_struct9(t.d1);
 }
 
+template <typename _FTy, typename _Ty>
+void Call_X(JitFuncCreater &jfc, _FTy &func, const ArgTypeUnit &atu, const _Ty &t)
+{
+	ArgTypeList tl{ &atu };
+	ArgDataList dl{ &t };
+	CurrABI::create_function_caller(jfc, &func, CurrABI::get_argumentinfo(tl), dl);
+}
+
 void Call_1(JitFuncCreater &jfc)
 {
 	type1 t{ 1 };
 
-	CurrABI::create_function_caller(jfc, &print_struct1, { &t }, { &atu_type1 });
+	Call_X(jfc, print_struct1, atu_type1, t);
 }
 
 void Call_2(JitFuncCreater &jfc)
 {
 	type2 t{ 1, 2.5789763 };
 
-	CurrABI::create_function_caller(jfc, &print_struct2, { &t }, { &atu_type2 });
+	Call_X(jfc, print_struct2, atu_type2, t);
 }
 
 void Call_3(JitFuncCreater &jfc)
 {
 	type3 t = { 1, 2.5789763, 3 };
 
-	CurrABI::create_function_caller(jfc, &print_struct3, { &t }, { &atu_type3 });
+	Call_X(jfc, print_struct3, atu_type3, t);
 }
 
 void Call_4(JitFuncCreater &jfc)
 {
 	type4 t = { 1, 0x22, 2.5789763 };
 
-	CurrABI::create_function_caller(jfc, &print_struct4, { &t }, { &atu_type4 });
+	Call_X(jfc, print_struct4, atu_type4, t);
 }
 
 void Call_5(JitFuncCreater &jfc)
 {
 	type5 t = { 1, 2 };
 
-	CurrABI::create_function_caller(jfc, &print_struct5, { &t }, { &atu_type5 });
+	Call_X(jfc, print_struct5, atu_type5, t);
 }
 
 void Call_6(JitFuncCreater &jfc)
 {
 	type6 t = { 1, 2, 3 };
 
-	CurrABI::create_function_caller(jfc, &print_struct6, { &t }, { &atu_type6 });
+	Call_X(jfc, print_struct6, atu_type6, t);
 }
 
 void Call_7(JitFuncCreater &jfc)
 {
 	type7 t = { type1{ 1 }, type1{ 2 } };
 
-	CurrABI::create_function_caller(jfc, &print_struct7, { &t }, { &atu_type7 });
+	Call_X(jfc, print_struct7, atu_type7, t);
 }
 
 void Call_8(JitFuncCreater &jfc)
 {
 	type8 t = { type1{ 1 }, type2{ 2, 3 } };
 
-	CurrABI::create_function_caller(jfc, &print_struct8, { &t }, { &atu_type8 });
+	Call_X(jfc, print_struct8, atu_type8, t);
 }
 
 void Call_9(JitFuncCreater &jfc)
 {
 	type9 t = { 1, 2, 3, 4, 5, 6, 7 };
 
-	CurrABI::create_function_caller(jfc, &print_struct9, { &t }, { &atu_type9 });
+	Call_X(jfc, print_struct9, atu_type9, t);
 }
 
 void Call_10(JitFuncCreater &jfc)
 {
 	type10 t = { type9 { 1, 2, 3, 4, 5, 6, 7 }, type9{ 8, 9, 10, 11, 12, 13, 14 } };
 
-	CurrABI::create_function_caller(jfc, &print_struct10, { &t }, { &atu_type10 });
+	Call_X(jfc, print_struct10, atu_type10, t);
 }
 
 int main(int argc, char *argv[])
