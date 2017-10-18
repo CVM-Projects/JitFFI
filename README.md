@@ -11,5 +11,13 @@ x86-64|Linux|System V AMD64 ABI|GCC|Most
 ## Run Example
 
 ```
-python ./test.py n   # n is the num you want to run.
+python ./test.py -t n   # n is the num you want to run.
 ```
+
+## Compile to Static Library
+
+```
+python ./test.py -c
+```
+
+This command will create a 'libjitffi.a' file.

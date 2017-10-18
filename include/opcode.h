@@ -1,10 +1,11 @@
-#pragma once
-#include <cstdint>
-#include "jitffi.h"
-using byte = uint8_t;
+// JitFFI Library
+// * opcode.h
 
-#define OP_64BIT (SIZE_MAX == UINT64_MAX)
-using uint_op = std::conditional_t<OP_64BIT, uint64_t, uint32_t>;
+#pragma once
+#ifndef _JITFFI_OPCODE_H_
+#define _JITFFI_OPCODE_H_
+#include <cstdint>
+#include "creater.h"
 
 namespace JitFFI
 {
@@ -313,17 +314,20 @@ namespace JitFFI
 		}
 	}
 
-	namespace OpCode
+	namespace OpCode_x86
 	{
 		template <typename _FTy>
 		inline void call_func(JitFuncCreater &jfc, _FTy *dat) {
-#if OP_64BIT
-			OpCode_x64::mov_rax(jfc, reinterpret_cast<uint_op>(dat));
+			OpCode::mov_eax(jfc, reinterpret_cast<uint32_t>(dat));
+			OpCode::call_eax(jfc);
+		}
+	}
+	namespace OpCode_x64
+	{
+		template <typename _FTy>
+		inline void call_func(JitFuncCreater &jfc, _FTy *dat) {
+			OpCode_x64::mov_rax(jfc, reinterpret_cast<uint64_t>(dat));
 			OpCode_x64::call_rax(jfc);
-#else
-			mov_eax(jfc, reinterpret_cast<uint_op>(dat));
-			call_eax(jfc);
-#endif
 		}
 	}
 
@@ -596,10 +600,11 @@ namespace JitFFI
 			}
 		}
 	}
-
-#if (defined(_WIN64))
-#	define OpCode_curr OpCode_win64
-#elif (defined(__x86_64__))
-#	define OpCode_curr OpCode_sysv64
-#endif
 }
+
+#	if (defined(_WIN64))
+#		define OpCode_curr OpCode_win64
+#	elif (defined(__x86_64__))
+#		define OpCode_curr OpCode_sysv64
+#	endif
+#endif

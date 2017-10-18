@@ -4,6 +4,12 @@
 
 using int64 = int64_t;
 
+template <typename T>
+static uint64_t convert_uint64(T v)
+{
+	return *(uint64_t*)&v;
+}
+
 void print(int64 n)
 {
 	print_num(n);

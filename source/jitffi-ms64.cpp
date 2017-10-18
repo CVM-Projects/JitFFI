@@ -1,11 +1,38 @@
-#include "jitffi-ms64.h"
-#include "opcode.h"
+#include "jitffi.h"
 #include "jitffi-def.h"
+#include "opcode.h"
 
 namespace JitFFI
 {
 	namespace MS64
 	{
+		class JitFuncCallerCreaterPlatform : public JitFuncCallerCreater
+		{
+		public:
+			template <typename _FTy>
+			explicit JitFuncCallerCreaterPlatform(JitFuncCreater &jfc, _FTy *func = nullptr)
+				: JitFuncCallerCreater(jfc, func) {}
+
+			void init_addarg_count(unsigned int int_c, unsigned int dou_c, unsigned int mem_c = 0) {
+				argn = int_c + dou_c + mem_c;
+				have_init = true;
+			}
+
+			void add_int(uint64_t dat);
+			void add_int_uint32(uint32_t dat);
+			void add_int_rbx();
+			void add_double(uint64_t dat);
+
+			void call();
+
+		private:
+			void _add_int(const std::function<OpHandler> &handler);
+			void _add_double(const std::function<OpHandler> &handler);
+
+			unsigned int argn;
+			unsigned int add_count = 0;
+		};
+
 		void JitFuncCallerCreaterPlatform::add_int(uint64_t dat) {
 			return _add_int([&](unsigned int c) { return OpCode_win64::add_int(jfc, dat, c); });
 		}
@@ -34,9 +61,87 @@ namespace JitFFI
 			assert(have_init);
 			assert(func);
 			OpCode_x64::sub_rsp_byte(jfc, 0x20);
-			OpCode::call_func(jfc, func);
+			OpCode_x64::call_func(jfc, func);
 			OpCode_x64::add_rsp_byte(jfc, 0x20);
 		}
+	}
+}
+
+namespace JitFFI
+{
+	namespace MS64
+	{
+		class ArgumentList
+		{
+			struct Data {
+				ArgType type;
+				uint64_t data;
+			};
+			using DataList = std::list<Data>;
+
+		public:
+			ArgumentList() = default;
+
+			void push(ArgType type, uint64_t v) {
+				list.push_front({ type, v });
+			}
+			unsigned int push_memory(uint64_t v) {
+				memlist.push_front(v);
+				return 1;
+			}
+
+			unsigned int push_memory(const void *dat, size_t size) {
+				return JitFFI::push_memory<uint64_t>(dat, size, [&](uint64_t v) { push_memory(v); });
+			}
+
+			bool get_next_memory(uint64_t &data) {
+				if (memlist.empty()) {
+					return false;
+				}
+				else {
+					data = memlist.front();
+					memlist.pop_front();
+					return true;
+				}
+			}
+
+			bool get_next(ArgType &type, uint64_t &data) {
+				if (list.empty()) {
+					return false;
+				}
+				else {
+					auto &e = list.front();
+					type = e.type;
+					data = e.data;
+					list.pop_front();
+					return true;
+				}
+			}
+
+			unsigned int size() const {
+				assert(list.size() < UINT32_MAX);
+				return static_cast<unsigned int>(list.size());
+			}
+
+		private:
+			DataList list;
+			std::list<uint64_t> memlist;
+		};
+
+		struct ArgTypeInfo
+		{
+			enum OP
+			{
+				op_int,
+				op_float,
+				op_push,
+				op_push_pointer,
+			};
+			using Size = unsigned int;
+			using Data = std::pair<OP, Size>;
+
+			std::vector<Data> typelist;
+		};
 
 		//
 
