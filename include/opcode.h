@@ -100,6 +100,9 @@ namespace JitFFI
 		inline void mov_rdi_rax(JitFuncCreater &jfc) {
 			jfc.push(0x48, 0x89, 0xc7);
 		}
+		inline void mov_rdi_rcx(JitFuncCreater &jfc) {
+			jfc.push(0x48, 0x89, 0xcf);
+		}
 		inline void mov_rsp_rdx(JitFuncCreater &jfc) {
 			jfc.push(0x48, 0x89, 0xd4);
 		}
@@ -136,6 +139,9 @@ namespace JitFFI
 		inline void mov_rcx_rdi(JitFuncCreater &jfc) {
 			jfc.push(0x48, 0x89, 0xf9);
 		}
+		inline void mov_rbx_rdi(JitFuncCreater &jfc) {
+			jfc.push(0x48, 0x89, 0xfb);
+		}
 		inline void mov_rax_prsp(JitFuncCreater &jfc, byte offset) {
 			jfc.push(0x48, 0x8b, 0x44, 0x24);
 			jfc.push(offset);
@@ -145,6 +151,35 @@ namespace JitFFI
 		}
 		inline void mov_r9_rbx(JitFuncCreater &jfc) {
 			jfc.push(0x49, 0x89, 0xd9);
+		}
+
+		inline void mov_prcx_rax(JitFuncCreater &jfc) {
+			jfc.push(0x48, 0x89, 0x01);
+		}
+		inline void mov_prcx_eax(JitFuncCreater &jfc) {
+			jfc.push(0x89, 0x01);
+		}
+		inline void mov_prcx_ax(JitFuncCreater &jfc) {
+			jfc.push(0x66, 0x89, 0x01);
+		}
+		inline void mov_prcx_al(JitFuncCreater &jfc) {
+			jfc.push(0x88, 0x01);
+		}
+		inline void mov_st0_prbx(JitFuncCreater &jfc) {
+			// fldt (%rbx)
+			jfc.push(0xdb, 0x2b);
+		}
+		inline void mov_prbx_st0(JitFuncCreater &jfc) {
+			// fstpt (%rbx)
+			jfc.push(0xdb, 0x3b);
+		}
+		inline void mov_st0_prsp(JitFuncCreater &jfc) {
+			// fldt (%rsp)
+			jfc.push(0xdb, 0x2c, 0x24);
+		}
+		inline void mov_prsp_st0(JitFuncCreater &jfc) {
+			// fstpt (%rsp)
+			jfc.push(0xdb, 0x3c, 0x24);
 		}
 
 		inline void mov_rax_uint64(JitFuncCreater &jfc, uint64_t dat) {
@@ -260,11 +295,23 @@ namespace JitFFI
 		inline void push_rbp(JitFuncCreater &jfc) {
 			jfc.push(0x55);
 		}
+		inline void push_rsi(JitFuncCreater &jfc) {
+			jfc.push(0x56);
+		}
+		inline void push_rdi(JitFuncCreater &jfc) {
+			jfc.push(0x57);
+		}
 		inline void pop_rbx(JitFuncCreater &jfc) {
 			jfc.push(0x5b);
 		}
 		inline void pop_rbp(JitFuncCreater &jfc) {
 			jfc.push(0x5d);
+		}
+		inline void pop_rsi(JitFuncCreater &jfc) {
+			jfc.push(0x5e);
+		}
+		inline void pop_rdi(JitFuncCreater &jfc) {
+			jfc.push(0x5f);
 		}
 		inline void call_rax(JitFuncCreater &jfc) {
 			jfc.push(0xff, 0xd0);

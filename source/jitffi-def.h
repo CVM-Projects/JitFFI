@@ -48,30 +48,33 @@ namespace JitFFI
 
 namespace JitFFI
 {
+	inline std::pair<unsigned int, unsigned int> get_next_post_base(unsigned int count, unsigned int size, unsigned int align) {
+		unsigned int pack = std::min<unsigned int>(align, size);
+		unsigned int rem = count % pack;
+		unsigned int result = (rem != 0) ? count + pack - rem : count;
+		return { result + size, result };
+	}
+
+	inline std::list<unsigned> get_postlist(const std::list<unsigned> &sizelist, unsigned int align) {
+		std::list<unsigned> postlist;
+		unsigned int count = 0;
+		for (unsigned int size : sizelist) {
+			unsigned int post;
+			std::tie(count, post) = get_next_post_base(count, size, align);
+			postlist.push_back(post);
+		}
+		postlist.push_back(count);
+		return postlist;
+	}
+
 	inline auto get_next_post_f(std::function<unsigned int()> get_next_size, const unsigned int align) {
-		bool is_first = true;
 		unsigned int count = 0;
 
 		return [=]() mutable {
-			unsigned int result;
-
 			unsigned int size = get_next_size();
-			if (is_first) {
-				count += size;
-				result = 0;
-				is_first = false;
-			}
-			else {
-				unsigned int pack = std::min<unsigned int>(align, size);
-				unsigned int rem = count % pack;
-
-				if (rem != 0) {
-					count += pack - rem;
-				}
-				result = count;
-				count += size;
-			}
-			return result;
+			unsigned int post;
+			std::tie(count, post) = get_next_post_base(count, size, align);
+			return post;
 		};
 	}
 }

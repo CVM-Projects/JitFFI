@@ -11,33 +11,37 @@
 
 namespace JitFFI
 {
-	enum ArgType
+	enum ArgTypeBase
 	{
-		AT_Unknown,
-		AT_Int,
-		AT_Float,
-		AT_Memory,
-		AT_Struct,
+		AT_Unknown = 0,
+		AT_Void = 1,
+		AT_Struct = 2,
 	};
 
-	struct ArgTypeUnit
+	using ArgTypeIndex = uint32_t;
+
+	struct ArgTypeUnitBase
 	{
-		using TypeData = const ArgTypeUnit*;
-		using TypeDataList = std::vector<TypeData>;
+		explicit ArgTypeUnitBase() = default;
+		explicit ArgTypeUnitBase(ArgTypeIndex type, uint32_t size)
+			: type(type), size(size) {}
 
-		explicit ArgTypeUnit(ArgType type, size_t size, size_t align)
-			: type(type), size(unsigned(size)), align(unsigned(align)) {}
+		ArgTypeIndex type = 0;
+		uint32_t size = 0;
+	};
+	struct ArgTypeUnit : public ArgTypeUnitBase
+	{
+		using TypeList = std::vector<const ArgTypeUnit*>;
+		using TypeBaseList = std::vector<const ArgTypeUnitBase*>;
 
-		explicit ArgTypeUnit(size_t size, size_t align, const TypeDataList &typedata)
-			: ArgTypeUnit(AT_Struct, size, align, typedata) {}
+		explicit ArgTypeUnit(ArgTypeIndex type, size_t size)
+			: ArgTypeUnitBase(type, uint32_t(size)) {}
 
-		explicit ArgTypeUnit(ArgType type, size_t size, size_t align, const TypeDataList &typedata)
-			: type(type), size(unsigned(size)), align(unsigned(align)), typedata(typedata) {}
+		explicit ArgTypeUnit(size_t size, size_t align, const TypeList &typelist)
+			: ArgTypeUnitBase(AT_Struct, uint32_t(size)), align(uint32_t(align)), typelist(typelist) {}
 
-		ArgType type = AT_Unknown;
-		unsigned int size = 0;
-		unsigned int align = 0;
-		TypeDataList typedata;
+		uint32_t align = 0;
+		TypeList typelist;
 	};
 
 	using ArgDataList = std::list<const void*>;

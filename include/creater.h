@@ -90,6 +90,7 @@ namespace JitFFI
 		template <typename _FTy> void init_func(_FTy *fp) { func = fp; }
 		virtual void init_addarg_count(unsigned int int_c, unsigned int dou_c, unsigned int mem_c = 0) = 0;
 
+		virtual void add_void() = 0;
 		virtual void add_int(uint64_t dat) = 0;
 		virtual void add_int_uint32(uint32_t dat) = 0;
 		virtual void add_int_rbx() = 0;
@@ -98,9 +99,8 @@ namespace JitFFI
 		void push(uint64_t);
 
 		void sub_rbx(uint32_t dat);
+		void add_rbx(uint32_t dat);
 		void mov_rbx_rsp();
-		void push_rbx();
-		void pop_rbx();
 
 		virtual void call() = 0;
 		void ret();

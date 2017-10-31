@@ -12,13 +12,13 @@
 
 namespace JitFFI
 {
-	// get_argumentinfo       = ArgTypeList                            -> ArgumentInfo
+	// get_argumentinfo       = (ArgTypeUnit ArgTypeList)              -> ArgumentInfo
 	// create_function_caller = (Func ArgumentInfo)                    -> function<void (void*, ArgDataList)>;
 	// create_function_caller = (Func ArgumentInfo ArgDataList)        -> function<void (void*)>;
 	// create_function_caller = (Func ArgumentInfo ArgDataListPartial) -> function<void (void*, ArgDataListPartial)>;
 
 #define _DECLARE_create_function_caller \
-	ArgumentInfo get_argumentinfo(const ArgTypeList &atlist); \
+	ArgumentInfo get_argumentinfo(const ArgTypeUnit &restype, const ArgTypeList &atlist); \
 	void create_function_caller(JitFuncCreater &jfc, void *func, const ArgumentInfo &argumentinfo, const ArgDataList &adlist); \
 	template <typename _FTy> \
 	void create_function_caller(JitFuncCreater &jfc, _FTy *func, const ArgumentInfo &argumentinfo, const ArgDataList &adlist) { \

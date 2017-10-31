@@ -102,67 +102,14 @@ namespace JitFFI
 	void JitFuncCallerCreater::sub_rbx(uint32_t dat) {
 		OpCode_x64::sub_rbx_uint32(jfc, dat);
 	}
+	void JitFuncCallerCreater::add_rbx(uint32_t dat) {
+		OpCode_x64::add_rbx_uint32(jfc, dat);
+	}
 	void JitFuncCallerCreater::mov_rbx_rsp() {
 		OpCode_x64::mov_rbx_rsp(jfc);
-	}
-
-	void JitFuncCallerCreater::push_rbx() {
-		OpCode_x64::push_rbx(jfc);
-		OpCode_x64::sub_rsp_byte(jfc, 0x8);
-	}
-	void JitFuncCallerCreater::pop_rbx() {
-		OpCode_x64::add_rsp_byte(jfc, 0x8);
-		OpCode_x64::pop_rbx(jfc);
 	}
 
 	void JitFuncCallerCreater::ret() {
 		OpCode_x64::ret(jfc);
 	}
-}
-
-namespace JitFFI
-{
-#define _define_atu_(name, type, at_type) const ArgTypeUnit atu_##name(at_type, sizeof(type), alignof(type))
-
-	_define_atu_(bool, bool, AT_Int);
-
-	_define_atu_(char, char, AT_Int);
-	_define_atu_(schar, signed char, AT_Int);
-	_define_atu_(uchar, unsigned char, AT_Int);
-	_define_atu_(wchar, wchar_t, AT_Int);
-
-	_define_atu_(int, int, AT_Int);
-	_define_atu_(lint, long int, AT_Int);
-	_define_atu_(llint, long long int, AT_Int);
-	_define_atu_(sint, short int, AT_Int);
-
-	_define_atu_(uint, unsigned int, AT_Int);
-	_define_atu_(ulint, unsigned long int, AT_Int);
-	_define_atu_(ullint, unsigned long long int, AT_Int);
-	_define_atu_(usint, unsigned short int, AT_Int);
-
-	_define_atu_(float, float, AT_Float);
-	_define_atu_(double, double, AT_Float);
-
-#if (defined(_WIN64))
-	const ArgTypeUnit atu_ldouble = atu_double;
-#elif (defined(__x86_64__))
-	const ArgTypeUnit atu_ldouble(AT_Memory, sizeof(long double), alignof(long double), { &atu_double, &atu_double });
-#endif
-
-	_define_atu_(pointer, void*, AT_Int);
-
-	_define_atu_(size, size_t, AT_Int);
-
-	_define_atu_(int8, int8_t, AT_Int);
-	_define_atu_(int16, int16_t, AT_Int);
-	_define_atu_(int32, int32_t, AT_Int);
-	_define_atu_(int64, int64_t, AT_Int);
-
-	_define_atu_(uint8, int8_t, AT_Int);
-	_define_atu_(uint16, int16_t, AT_Int);
-	_define_atu_(uint32, int32_t, AT_Int);
-	_define_atu_(uint64, int64_t, AT_Int);
-
-#undef _define_atu_
 }

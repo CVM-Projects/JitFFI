@@ -7,6 +7,7 @@
 #include "jitffi.h"
 #include "opcode.h"
 using namespace JitFFI;
+using namespace JitFFI::CurrABI;
 
 template <typename... Args>
 void new_printf(const char *msg, Args... args) {}
@@ -67,21 +68,21 @@ inline auto Compile(CallerProcess *handler, bool use_new_memory = false)
 
 	handler(jfc);
 
-	run_objdump(jfc);
+	//run_objdump(jfc);
 
-	return jf.func<int(void)>();
+	return jf.func<uint64_t(void*)>();
 }
 
 template <typename _FTy>
-inline void Run(_FTy f)
+inline void Run(_FTy f, void *dst = nullptr)
 {
-	int v = f();
-	printf("%d\n", v);
+	uint64_t v = f(dst);
+	printf("[Return:0x%016llX]\n", v);
 }
 
-inline void Call(CallerProcess *handler)
+inline void Call(CallerProcess *handler, void *dst = nullptr)
 {
 	auto f = Compile(handler);
 
-	Run(f);
+	Run(f, dst);
 }

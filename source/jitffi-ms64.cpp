@@ -1,6 +1,52 @@
 #include "jitffi.h"
 #include "jitffi-def.h"
 #include "opcode.h"
+#include "platform/argtype-ms64.h"
+
+namespace JitFFI
+{
+	namespace MS64
+	{
+#define _define_atu_(name, type, at_type, size) const ArgTypeUnit atu_##name(at_type, size)
+
+		_define_atu_(void, void, AT_Void, 0);
+		_define_atu_(bool, bool, AT_Int, 1);
+
+		_define_atu_(char, char, AT_Int, 1);
+		_define_atu_(schar, signed char, AT_Int, 1);
+		_define_atu_(uchar, unsigned char, AT_Int, 1);
+
+		_define_atu_(int, int, AT_Int, 4);
+		_define_atu_(short, short, AT_Int, 2);
+		_define_atu_(lint, long int, AT_Int, 4);
+		_define_atu_(llint, long long int, AT_Int, 8);
+
+		_define_atu_(uint, unsigned int, AT_Int, 4);
+		_define_atu_(ushort, unsigned short int, AT_Int, 2);
+		_define_atu_(ulint, unsigned long int, AT_Int, 4);
+		_define_atu_(ullint, unsigned long long int, AT_Int, 8);
+
+		_define_atu_(float, float, AT_Float, 4);
+		_define_atu_(double, double, AT_Float, 8);
+		_define_atu_(ldouble, long double, AT_Float, 8);
+
+		_define_atu_(pointer, void*, AT_Int, 8);
+
+		_define_atu_(size, size_t, AT_Int, 8);
+
+		_define_atu_(int8, int8_t, AT_Int, 1);
+		_define_atu_(int16, int16_t, AT_Int, 2);
+		_define_atu_(int32, int32_t, AT_Int, 4);
+		_define_atu_(int64, int64_t, AT_Int, 8);
+
+		_define_atu_(uint8, int8_t, AT_Int, 1);
+		_define_atu_(uint16, int16_t, AT_Int, 2);
+		_define_atu_(uint32, int32_t, AT_Int, 4);
+		_define_atu_(uint64, int64_t, AT_Int, 8);
+
+#undef _define_atu_
+	}
+}
 
 namespace JitFFI
 {
@@ -19,6 +65,7 @@ namespace JitFFI
 			}
 
 			void add_int(uint64_t dat);
+			void add_void();
 			void add_int_uint32(uint32_t dat);
 			void add_int_rbx();
 			void add_double(uint64_t dat);
@@ -46,6 +93,10 @@ namespace JitFFI
 			return _add_double([&](unsigned int c) { return OpCode_win64::add_double(jfc, dat, c); });
 		}
 
+		void JitFuncCallerCreaterPlatform::add_void() {
+			assert(argn - add_count >= 0);
+			++add_count;
+		}
 		void JitFuncCallerCreaterPlatform::_add_int(const std::function<OpHandler> &handler) {
 			assert(argn - add_count >= 0);
 			++add_count;
@@ -91,7 +142,10 @@ namespace JitFFI
 			}
 
 			unsigned int push_memory(const void *dat, size_t size) {
-				return JitFFI::push_memory<uint64_t>(dat, size, [&](uint64_t v) { push_memory(v); });
+				std::list<uint64_t> vlist;
+				unsigned int r = JitFFI::push_memory<uint64_t>(dat, size, [&](uint64_t v) { vlist.push_front(v); });
+				memlist.insert(memlist.end(), vlist.begin(), vlist.end());
+				return r;
 			}
 
 			bool get_next_memory(uint64_t &data) {
@@ -122,10 +176,20 @@ namespace JitFFI
 				assert(list.size() < UINT32_MAX);
 				return static_cast<unsigned int>(list.size());
 			}
+			void set_ressize(unsigned int size) {
+				_ressize = size;
+			}
+			bool return_by_pointer() const {
+				return _ressize == 0;
+			}
+			unsigned int ressize() const {
+				return _ressize;
+			}
 
 		private:
 			DataList list;
 			std::list<uint64_t> memlist;
+			unsigned int _ressize = 0;
 		};
 
 		struct ArgTypeInfo
@@ -141,12 +205,16 @@ namespace JitFFI
 			using Data = std::pair<OP, Size>;
 
 			std::vector<Data> typelist;
+			Data restype;
 		};
 
 		//
 
 		inline bool need_pass_by_pointer(size_t n) {
 			return (n != 1 && n != 2 && n != 4 && n != 8);
+		}
+		inline bool need_return_by_pointer(size_t n) {
+			return need_pass_by_pointer(n);
 		}
 
 		//
@@ -177,45 +245,62 @@ namespace JitFFI
 
 		//
 
-		ArgTypeInfo create_argtypeinfo(const ArgTypeList &atlist)
+		ArgTypeInfo create_argtypeinfo(const ArgTypeUnit &restype, const ArgTypeList &atlist)
 		{
 			ArgTypeInfo ati;
+			if (restype.type != AT_Void && need_return_by_pointer(restype.size)) {
+				ati.restype = { ArgTypeInfo::op_push_pointer, restype.size };
+			}
+			else {
+				ati.restype = { ArgTypeInfo::op_int, restype.size };
+			}
 			for (auto &type : atlist) {
 				ati.typelist.push_back(get_argtypeinfo_data(*type));
 			}
 			return ati;
 		}
 
+		void create_argumentlist_base(ArgumentList &list, const ArgTypeInfo::Data &type, const void *data) {
+			switch (type.first) {
+			case ArgTypeInfo::op_int:
+				list.push(AT_Int, convert_uint64(data, type.second));
+				break;
+			case ArgTypeInfo::op_float:
+				list.push(AT_Float, convert_uint64(data, type.second));
+				break;
+			case ArgTypeInfo::op_push:
+				list.push(AT_Int, convert_uint64(data, type.second));
+				break;
+			case ArgTypeInfo::op_push_pointer: {
+				unsigned int offset = list.push_memory(data, type.second);
+				list.push(AT_Memory, offset);
+				break;
+			}
+			default:
+				assert(false);
+				break;
+			}
+		}
+
 		ArgumentList create_argumentlist(const ArgTypeInfo &ati, const ArgDataList &datalist) {
 			ArgumentList list;
 			auto iter = datalist.begin();
 			assert(ati.typelist.size() == datalist.size());
+			if (ati.restype.first == ArgTypeInfo::op_push_pointer) {
+				list.push(AT_Void, 0);
+				assert(ati.restype.second != 0);
+			}
+			else {
+				list.set_ressize(ati.restype.second);
+			}
 			for (auto &type : ati.typelist) {
-				switch (type.first) {
-				case ArgTypeInfo::op_int:
-					list.push(AT_Int, convert_uint64(*iter, type.second));
-					break;
-				case ArgTypeInfo::op_float:
-					list.push(AT_Float, convert_uint64(*iter, type.second));
-					break;
-				case ArgTypeInfo::op_push:
-					list.push(AT_Int, convert_uint64(*iter, type.second));
-					break;
-				case ArgTypeInfo::op_push_pointer: {
-					unsigned int offset = list.push_memory(*iter, type.second);
-					list.push(AT_Memory, offset);
-					break;
-				}
-				default:
-					assert(false);
-					break;
-				}
+				create_argumentlist_base(list, type, *iter);
 				++iter;
 			}
 			return list;
 		}
 
-		void add_argument(JitFuncCallerCreater &jfcc, ArgumentList &list) {
+		void create_argument(JitFuncCallerCreater &jfcc, ArgumentList &list) {
 			ArgType type;
 			uint64_t data;
 
@@ -229,6 +314,9 @@ namespace JitFFI
 
 			while (list.get_next(type, data)) {
 				switch (type) {
+				case AT_Void:
+					jfcc.add_void();
+					break;
 				case AT_Int:
 					jfcc.add_int(data);
 					break;
@@ -238,7 +326,7 @@ namespace JitFFI
 				case AT_Memory:
 					jfcc.add_int_rbx();
 					assert(data * 8 < UINT32_MAX);
-					jfcc.sub_rbx(static_cast<uint32_t>(data * 8));
+					jfcc.add_rbx(static_cast<uint32_t>(data * 8));
 					break;
 				default:
 					assert(false);
@@ -246,8 +334,20 @@ namespace JitFFI
 			}
 		}
 
-		ArgumentInfo get_argumentinfo(const ArgTypeList &atlist) {
-			ArgTypeInfo *p_ati = new ArgTypeInfo(create_argtypeinfo(atlist));
+		void create_return(JitFuncCallerCreater &jfcc, ArgumentList &list) {
+			if (!list.return_by_pointer()) {
+				switch (list.ressize()) {
+				case 8: OpCode_x64::mov_prcx_rax(jfcc.data()); break;
+				case 4: OpCode_x64::mov_prcx_eax(jfcc.data()); break;
+				case 2: OpCode_x64::mov_prcx_ax(jfcc.data());  break;
+				case 1: OpCode_x64::mov_prcx_al(jfcc.data());  break;
+				default: assert(false);
+				}
+			}
+		}
+
+		ArgumentInfo get_argumentinfo(const ArgTypeUnit &restype, const ArgTypeList &atlist) {
+			ArgTypeInfo *p_ati = new ArgTypeInfo(create_argtypeinfo(restype, atlist));
 			return ArgumentInfo(P_MS64, p_ati);
 		}
 		const ArgTypeInfo& get_argtypeinfo(const ArgumentInfo &argumentinfo) {
@@ -257,16 +357,22 @@ namespace JitFFI
 		void create_function_caller(JitFuncCreater &jfc, ArgumentList &list, void *func)
 		{
 			JitFuncCallerCreaterPlatform jfcc(jfc, func);
-			jfcc.push_rbx();
+			OpCode_x64::push_rbx(jfc);
+			OpCode_x64::push_rdi(jfc);
 			byte &v = jfcc.sub_rsp_unadjusted();
 
-			add_argument(jfcc, list);
+			OpCode_x64::mov_rdi_rcx(jfc);
+			create_argument(jfcc, list);
 
 			jfcc.call();
 
+			OpCode_x64::mov_rcx_rdi(jfc);
+			create_return(jfcc, list);
+
 			jfcc.add_rsp();
 			jfcc.adjust_sub_rsp(v);
-			jfcc.pop_rbx();
+			OpCode_x64::pop_rdi(jfc);
+			OpCode_x64::pop_rbx(jfc);
 			jfcc.ret();
 		}
 

@@ -135,12 +135,138 @@ void print_struct10(type10 t)
 	print_struct9(t.d1);
 }
 
+typedef struct {
+	char d0;
+	float d1;
+} type11a;
+
+typedef struct {
+	float d0;
+	char d1;
+} type11b;
+
+typedef struct {
+	type11a d0;
+	type11b d1;
+} type11;
+
+const ArgTypeUnit atu_type11a(sizeof(type11a), alignof(type11a), { &atu_char, &atu_float });
+const ArgTypeUnit atu_type11b(sizeof(type11b), alignof(type11b), { &atu_float, &atu_char });
+const ArgTypeUnit atu_type11(sizeof(type11), alignof(type11), { &atu_type11a, &atu_type11b });
+
+void print_struct11a(type11a t)
+{
+	print(t.d0);
+	printf("0x%llX\n", *((uint16_t*)&t.d1));
+}
+
+void print_struct11b(type11b t)
+{
+	printf("0x%llX\n", *((uint16_t*)&t.d0));
+	print(t.d1);
+}
+
+void print_struct11(type11 t)
+{
+	print_struct11a(t.d0);
+	print_struct11b(t.d1);
+}
+
+typedef struct {
+	float d0;
+	float d1;
+} type12a;
+
+typedef struct {
+	float d0;
+	float d1;
+} type12b;
+
+typedef struct {
+	type12a d0;
+	type12b d1;
+} type12;
+
+const ArgTypeUnit atu_type12a(sizeof(type12a), alignof(type12a), { &atu_float, &atu_float });
+const ArgTypeUnit atu_type12b(sizeof(type12b), alignof(type12b), { &atu_float, &atu_float });
+const ArgTypeUnit atu_type12(sizeof(type12), alignof(type12), { &atu_type12a, &atu_type12b });
+
+void print_struct12a(type12a t)
+{
+	printf("0x%llX\n", *((uint16_t*)&t.d0));
+	printf("0x%llX\n", *((uint16_t*)&t.d1));
+}
+
+void print_struct12b(type12b t)
+{
+	printf("0x%llX\n", *((uint16_t*)&t.d0));
+	printf("0x%llX\n", *((uint16_t*)&t.d1));
+}
+
+void print_struct12(type12 t)
+{
+	print_struct12a(t.d0);
+	print_struct12b(t.d1);
+}
+
+typedef struct {
+	uint16_t d0;
+} type13a;
+
+typedef struct {
+	float d0;
+	float d1;
+	float d2;
+} type13b;
+
+typedef struct {
+	type13a d0;
+	type13b d1;
+} type13;
+
+const ArgTypeUnit atu_type13a(sizeof(type13a), alignof(type13a), { &atu_uint16 });
+const ArgTypeUnit atu_type13b(sizeof(type13b), alignof(type13b), { &atu_float, &atu_float, &atu_float });
+const ArgTypeUnit atu_type13(sizeof(type13), alignof(type13), { &atu_type13a, &atu_type13b });
+
+void print_struct13a(type13a t)
+{
+	printf("0x%llX\n", *((uint16_t*)&t.d0));
+}
+
+void print_struct13b(type13b t)
+{
+	printf("0x%llX\n", *((uint16_t*)&t.d0));
+	printf("0x%llX\n", *((uint16_t*)&t.d1));
+	printf("0x%llX\n", *((uint16_t*)&t.d2));
+}
+
+void print_struct13(type13 t)
+{
+	print_struct13a(t.d0);
+	print_struct13b(t.d1);
+}
+
+typedef struct {
+	char d0;
+	char d1;
+	uint32_t d2;
+	char d3;
+} type14;
+
+const ArgTypeUnit atu_type14(sizeof(type14), alignof(type14), { &atu_char, &atu_char, &atu_uint32, &atu_char });
+
+void print_struct14(type14 t)
+{
+	printf("(%d %d %d %d)\n", t.d0, t.d1, t.d2, t.d3);
+}
+
 template <typename _FTy, typename _Ty>
 void Call_X(JitFuncCreater &jfc, _FTy &func, const ArgTypeUnit &atu, const _Ty &t)
 {
 	ArgTypeList tl{ &atu };
 	ArgDataList dl{ &t };
-	CurrABI::create_function_caller(jfc, &func, CurrABI::get_argumentinfo(tl), dl);
+	ArgumentInfo info = CurrABI::get_argumentinfo(atu_void, tl);
+	CurrABI::create_function_caller(jfc, &func, info, dl);
 }
 
 void Call_1(JitFuncCreater &jfc)
@@ -213,6 +339,41 @@ void Call_10(JitFuncCreater &jfc)
 	Call_X(jfc, print_struct10, atu_type10, t);
 }
 
+float convert_f32(int v)
+{
+	return *(float*)(&v);
+}
+
+void Call_11(JitFuncCreater &jfc)
+{
+	type11 t = { type11a { 1, convert_f32(2) }, type11b { convert_f32(3), 4 } };
+
+	Call_X(jfc, print_struct11, atu_type11, t);
+}
+
+void Call_12(JitFuncCreater &jfc)
+{
+	type12 t = { type12a { convert_f32(1), convert_f32(2) }, type12b { convert_f32(3), convert_f32(4) } };
+
+	Call_X(jfc, print_struct12, atu_type12, t);
+}
+
+void Call_13(JitFuncCreater &jfc)
+{
+	type13 t = { type13a { 1 }, type13b { convert_f32(2), convert_f32(3), convert_f32(4) } };
+
+	Call_X(jfc, print_struct13, atu_type13, t);
+}
+
+void Call_14(JitFuncCreater &jfc)
+{
+	type14 t = { 1, 2, 3, 4 };
+
+	Call_X(jfc, print_struct14, atu_type14, t);
+}
+
+#include "../source/jitffi-def.h"
+
 int main(int argc, char *argv[])
 {
 	Call(Call_1);
@@ -225,4 +386,8 @@ int main(int argc, char *argv[])
 	Call(Call_8);
 	Call(Call_9);
 	Call(Call_10);
+	Call(Call_11);
+	Call(Call_12);
+	Call(Call_13);
+	Call(Call_14);
 }

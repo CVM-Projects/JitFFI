@@ -242,7 +242,7 @@ void Call_1(JitFuncCreater &jfc)
 	ArgDataList dl = { &v0, &v1, &v2, &v3 };
 	ArgTypeList tl = { &atu_double, &atu_double, &atu_double, &atu_double };
 
-	ArgumentInfo arginfo = CurrABI::get_argumentinfo(tl);
+	ArgumentInfo arginfo = CurrABI::get_argumentinfo(atu_void, tl);
 	CurrABI::create_function_caller(jfc, &callerX4, arginfo, dl);
 }
 
@@ -260,7 +260,7 @@ void Call_2(JitFuncCreater &jfc)
 		tl.push_back(&atu_uint64);
 	}
 
-	ArgumentInfo arginfo = CurrABI::get_argumentinfo(tl);
+	ArgumentInfo arginfo = CurrABI::get_argumentinfo(atu_void, tl);
 	CurrABI::create_function_caller(jfc, &callerN10, arginfo, dl);
 }
 
@@ -284,7 +284,7 @@ void Call_3(JitFuncCreater &jfc)
 		dl.push_back(&arr[i]);
 	}
 
-	ArgumentInfo arginfo = CurrABI::get_argumentinfo(tl);
+	ArgumentInfo arginfo = CurrABI::get_argumentinfo(atu_void, tl);
 	CurrABI::create_function_caller(jfc, &callerNX, arginfo, dl);
 }
 
@@ -293,7 +293,7 @@ void Call_4(JitFuncCreater &jfc)
 {
 	long double ld = 2.5;
 
-	ArgumentInfo arginfo = CurrABI::get_argumentinfo({ &atu_ldouble });
+	ArgumentInfo arginfo = CurrABI::get_argumentinfo(atu_void, { &atu_ldouble });
 	CurrABI::create_function_caller(jfc, &function_1, arginfo, { &ld });
 }
 
@@ -304,7 +304,7 @@ void Call_5(JitFuncCreater &jfc)
 	double d = 8.0;
 	long double ld = 2.5;
 
-	ArgumentInfo arginfo = CurrABI::get_argumentinfo({ &atu_int, &atu_float, &atu_double, &atu_ldouble });
+	ArgumentInfo arginfo = CurrABI::get_argumentinfo(atu_void, { &atu_int, &atu_float, &atu_double, &atu_ldouble });
 	CurrABI::create_function_caller(jfc, &function_2, arginfo, { &i, &f, &d, &ld });
 }
 
