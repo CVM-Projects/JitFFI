@@ -121,118 +121,217 @@ namespace JitFFI
 {
 	namespace SysV64
 	{
-		struct ArgStructTypeInfo
-		{
-			uint16_t size = 0;
-			uint8_t list[2] = { 0, 0 };
-		};
-
 		struct ArgTypeInfo
 		{
-			enum OP
-			{
+			enum OP : uint8_t {
+				op_void,
 				op_int,
 				op_float,
 				op_memory,
 				op_struct,
+				op_over,
 			};
-			using Size = unsigned int;
-			using Data = std::pair<OP, Size>;
 
-			std::vector<Data> typelist;
-			std::vector<ArgStructTypeInfo> structlist;
-			Data resdata;
-			ArgType restype;
-			ArgStructTypeInfo resstutype;
+			struct StructBaseData {
+				StructBaseData() : StructBaseData(0, 0) {}
+				StructBaseData(uint8_t t0, uint8_t t1) : type0(t0), type1(t1) {
+					assert(t0 < 16);
+					assert(t1 < 16);
+				}
+
+				uint8_t type0 : 4;
+				uint8_t type1 : 4;
+
+				void set_typex(int i, uint8_t type) {
+					assert(i == 0 || i == 1);
+					assert(type < 16);
+					if (i == 0)
+						type0 = type;
+					else
+						type1 = type;
+				}
+				uint8_t get_typex(int i) const {
+					assert(i == 0 || i == 1);
+					return (i == 0) ? type0 : type1;
+				}
+			};
+
+			struct StructTypeData : public StructBaseData {
+				StructTypeData() = default;
+
+				StructTypeData(ArgType t0, ArgType t1)
+					: StructBaseData(t0, t1) {}
+
+				void set(int i, ArgType type) {
+					assert(AT_Unknown < type && type < AT_Over);
+					set_typex(i, type);
+				}
+				ArgType get(int i) const {
+					return static_cast<ArgType>(get_typex(i));
+				}
+			};
+
+			struct StructPassData : public StructBaseData {
+				StructPassData() = default;
+
+				StructPassData(OP t0, OP t1)
+					: StructBaseData(t0, t1) {}
+
+				void set(int i, OP type) {
+					assert(type < OP::op_over);
+					set_typex(i, type);
+				}
+				OP get(int i) const {
+					return static_cast<OP>(get_typex(i));
+				}
+			};
+
+			struct PassData {
+				PassData() = default;
+
+				PassData(OP op, uint16_t size)
+					: op(op), size(size) {}
+
+				void setspd(const StructPassData &spd) {
+					if (spd.get(0) == op_memory || spd.get(1) == op_memory) {
+						op = op_memory;
+					}
+					this->spd = spd;
+				}
+				const StructPassData& getspd() const {
+					return spd;
+				}
+
+				uint8_t op = 0;
+			private:
+				StructPassData spd;
+			public:
+				uint16_t size = 0;
+			};
+
+			struct RetData {
+				RetData() = default;
+
+				RetData(ArgTypeIndex type, uint16_t size)
+					: type(type), size(size) {
+					assert(AT_Unknown < type && type < AT_Over);
+				}
+
+				void setstd(const StructTypeData &std) {
+					if (std.get(0) == AT_Memory || std.get(1) == AT_Memory) {
+						type = AT_Memory;
+					}
+					this->std = std;
+				}
+				const StructTypeData& getstd() const {
+					return std;
+				}
+
+				uint8_t type = 0;
+			private:
+				StructTypeData std;
+			public:
+				uint16_t size = 0;
+			};
+
+			ArgTypeInfo(uint32_t size)
+				: size(size), typelist((PassData*)std::malloc(size * sizeof(PassData))) {}
+
+			struct Deleter { void operator()(PassData *p) { std::free(p); } };
+
+			uint32_t size;
+			RetData restype;
+			std::unique_ptr<PassData, Deleter> typelist;
 		};
 
-		constexpr int i = sizeof(ArgTypeInfo);
+		constexpr int ix = sizeof(ArgTypeInfo);
 
-		class ArgumentList
-		{
-			struct Data {
-				ArgType type;
-				uint64_t data;
-			};
-			using DataList = std::list<Data>;
+		//==============================
+		// * Get ArgTypeInfo
+		//==============================
 
-		public:
-			ArgumentList() = default;
+		static ArgTypeInfo::PassData get_argtypeinfo_pass_data(const ArgTypeUnit &atu);
+		static ArgTypeInfo::RetData get_argtypeinfo_ret_data(const ArgTypeUnit &atu);
 
-			void push(ArgType type, uint64_t v) {
-				switch (type) {
-				case AT_Void: _int_count++; break;
-				case AT_Integer: _int_count++; break;
-				case AT_SSE: _float_count++; break;
-				case AT_Memory: _memory_count++; break;
-				default: assert(false);
-				}
-				list.push_front({ type, v });
-			}
+		static ArgTypeInfo create_argtypeinfo(const ArgTypeUnit &restype, const ArgTypeList &atlist) {
+			return JitFFI::create_argtypeinfo<ArgTypeInfo, ArgTypeInfo::PassData, ArgTypeInfo::RetData, get_argtypeinfo_pass_data, get_argtypeinfo_ret_data>(restype, atlist);
+		}
 
-			void push_memory(uint64_t v) {
-				list.push_front({ AT_Memory, v });
-				_memory_count++;
-			}
-
-			void push_memory(const void *dat, size_t size) {
-				JitFFI::push_memory<uint64_t>(dat, size, [&](uint64_t v) { push_memory(v); });
-			}
-
-			bool get_next(ArgType &type, uint64_t &data) {
-				if (list.empty()) {
-					return false;
-				}
-				else {
-					auto &e = list.front();
-					type = e.type;
-					data = e.data;
-					list.pop_front();
-					return true;
-				}
-			}
-
-			unsigned int get_int_count() const {
-				return _int_count;
-			}
-			unsigned int get_float_count() const {
-				return _float_count;
-			}
-			unsigned int get_memory_count() const {
-				return _memory_count;
-			}
-
-			void set_resstutype(const ArgStructTypeInfo *asti) {
-				this->asti = asti;
-			}
-			bool return_by_memory() const {
-				return asti == nullptr;
-			}
-			const ArgStructTypeInfo& resstutype() const {
-				assert(asti != nullptr);
-				return *asti;
-			}
-			void set_restype(ArgType at) {
-				resat = at;
-			}
-			ArgType restype() const {
-				return resat;
-			}
-
-		private:
-			DataList list;
-			unsigned int _int_count = 0;
-			unsigned int _float_count = 0;
-			unsigned int _memory_count = 0;
-			ArgType resat;
-			const ArgStructTypeInfo *asti = nullptr;
-		};
-
-		//
-
-		inline bool need_pass_by_memory(size_t n) {
+		static bool need_pass_by_memory(size_t n) {
 			return n > 16;
 		}
+
+		static ArgTypeInfo::StructTypeData get_argstructtypeinfo(const ArgTypeUnit &atu);
+		static ArgTypeInfo::StructPassData convert_to_structpassdata(const ArgTypeInfo::StructTypeData &astd);
+
+		static ArgTypeInfo::PassData get_argtypeinfo_pass_data(const ArgTypeUnit &atu) {
+			switch (atu.type) {
+			case AT_Integer:
+				return ArgTypeInfo::PassData(ArgTypeInfo::op_int, atu.size);
+			case AT_SSE:
+				return ArgTypeInfo::PassData(ArgTypeInfo::op_float, atu.size);
+			case AT_Struct:
+				if (need_pass_by_memory(atu.size)) {
+					return ArgTypeInfo::PassData(ArgTypeInfo::op_memory, atu.size);
+				}
+				else {
+					ArgTypeInfo::PassData res(ArgTypeInfo::op_struct, atu.size);
+					res.setspd(convert_to_structpassdata(get_argstructtypeinfo(atu)));
+					return res;
+				}
+			case AT_Memory:
+			case AT_X87:
+			case AT_X87UP:
+			case AT_ComplexX87:
+				return ArgTypeInfo::PassData(ArgTypeInfo::op_memory, atu.size);
+			default:
+				assert(false);
+			}
+			return ArgTypeInfo::PassData(ArgTypeInfo::op_int, 0xcccc);
+		}
+
+		static ArgTypeInfo::RetData get_argtypeinfo_ret_data(const ArgTypeUnit &atu) {
+			ArgTypeInfo::RetData ard(atu.type, atu.size);
+			if (atu.type == AT_Struct) {
+				if (need_pass_by_memory(atu.size)) {
+					ard.type = AT_Memory;
+				}
+				else {
+					ard.setstd(get_argstructtypeinfo(atu));
+					if (ard.getstd().get(0) == AT_Memory || ard.getstd().get(1) == AT_Memory) {
+						ard.type = AT_Memory;
+					}
+				}
+			}
+			return ard;
+		}
+
+		static ArgTypeInfo::OP get_pass_type(ArgType type) {
+			switch (type) {
+			case AT_Unknown:
+				return ArgTypeInfo::op_void;
+			case AT_Integer:
+				return ArgTypeInfo::op_int;
+			case AT_SSE:
+				return ArgTypeInfo::op_float;
+			case AT_Memory:
+			case AT_X87:
+			case AT_X87UP:
+			case AT_ComplexX87:
+				return ArgTypeInfo::op_memory;
+			default:
+				assert(false);
+				return ArgTypeInfo::op_void;
+			}
+		}
+
+		static ArgTypeInfo::StructPassData convert_to_structpassdata(const ArgTypeInfo::StructTypeData &astd) {
+			return ArgTypeInfo::StructPassData(get_pass_type(astd.get(0)), get_pass_type(astd.get(1)));
+		}
+
+		//==============================
+		// * Get ArgStructTypeInfo
+		//==============================
 
 		namespace Struct
 		{
@@ -244,7 +343,7 @@ namespace JitFFI
 				};
 
 				unsigned int num = 0;
-				Data data[16] = { 0 };
+				Data data[16] = { { 0, 0 } };
 			};
 
 			static void print_stl(const StructTypeList &stl) {
@@ -324,9 +423,9 @@ namespace JitFFI
 
 			// Get ArgStructTypeInfo
 
-			static ArgStructTypeInfo get_argstructtypeinfo_base(uint32_t size, const StructTypeList &stl);
+			static ArgTypeInfo::StructTypeData get_argstructtypeinfo_base(uint32_t size, const StructTypeList &stl);
 
-			static ArgStructTypeInfo get_argstructtypeinfo(const ArgTypeUnit &atu) {
+			static ArgTypeInfo::StructTypeData get_argstructtypeinfo(const ArgTypeUnit &atu) {
 				StructTypeList stl = get_alignsizelist(create_struct_typebaselist(atu.typelist), atu.align);
 
 				//print_stl(stl);
@@ -362,91 +461,135 @@ namespace JitFFI
 				return AT_SSE;
 			}
 
-			static ArgStructTypeInfo get_argstructtypeinfo_base(uint32_t size, const StructTypeList &stl) {
-				ArgStructTypeInfo asti;
+			static ArgTypeInfo::StructTypeData get_argstructtypeinfo_base(uint32_t size, const StructTypeList &stl) {
+				ArgTypeInfo::StructTypeData asti;
 				assert(size < UINT16_MAX);
-				asti.size = static_cast<uint16_t>(size);
 
 				int count = 0;
 				int asti_i = 0;
 				int stl_i = 0;
 				ArgType type = AT_NoClass;
-				for (int stl_i = 0; stl_i < stl.num; ++stl_i) {
+				for (unsigned stl_i = 0; stl_i < stl.num; ++stl_i) {
 					auto &e = stl.data[stl_i];
 					count += e.size;
 					type = get_struct_type_base(type, static_cast<ArgType>(e.type));
 
 					if (count % 8 == 0) {
-						asti.list[asti_i++] = type;
+						asti.set(asti_i++, type);
 						type = AT_NoClass;
 					}
 				}
 				if (count % 8 != 0) {
-					asti.list[asti_i++] = type;
+					asti.set(asti_i++, type);
 				}
 
-				//printf("(%d (%d %d))\n", asti.size, asti.list[0], asti.list[1]);
+				//printf("(%d (%d %d))\n", asti.size, asti.get(0), asti.get(1));
 
 				return asti;
 			}
 		}
 
-		ArgStructTypeInfo get_argstructtypeinfo(const ArgTypeUnit &atu) {
+		static ArgTypeInfo::StructTypeData get_argstructtypeinfo(const ArgTypeUnit &atu) {
 			assert(atu.type == AT_Struct);
+			assert(!need_pass_by_memory(atu.size));
 			return Struct::get_argstructtypeinfo(atu);
 		}
+	}
 
-		//
+	namespace SysV64
+	{
+		//==============================
+		// * Get ArgumentList
+		//==============================
 
-		ArgTypeInfo::Data get_argtypeinfo_data(const ArgTypeUnit &atu) {
-			switch (atu.type) {
-			case AT_Integer:
-				return { ArgTypeInfo::op_int, atu.size };
-			case AT_SSE:
-				return { ArgTypeInfo::op_float, atu.size };
-			case AT_Memory:
-				return { ArgTypeInfo::op_memory, atu.size };
-			case AT_Struct:
-				if (need_pass_by_memory(atu.size)) {
-					return { ArgTypeInfo::op_memory, atu.size };
+		class ArgumentList
+		{
+			struct Data {
+				ArgTypeInfo::OP type;
+				uint64_t data;
+			};
+			using DataList = std::list<Data>;
+
+		public:
+			ArgumentList() = default;
+
+			void push(ArgTypeInfo::OP type, uint64_t v) {
+				switch (type) {
+				case ArgTypeInfo::op_void: _int_count++; break;
+				case ArgTypeInfo::op_int: _int_count++; break;
+				case ArgTypeInfo::op_float: _float_count++; break;
+				case ArgTypeInfo::op_memory: _memory_count++; break;
+				default: assert(false);
+				}
+				list.push_front({ type, v });
+			}
+
+			void push_memory(uint64_t v) {
+				list.push_front({ ArgTypeInfo::op_memory, v });
+				_memory_count++;
+			}
+
+			void push_memory(const void *dat, size_t size) {
+				JitFFI::push_memory<uint64_t>(dat, size, [&](uint64_t v) { push_memory(v); });
+			}
+
+			bool get_next(ArgTypeInfo::OP &type, uint64_t &data) {
+				if (list.empty()) {
+					return false;
 				}
 				else {
-					return { ArgTypeInfo::op_struct, atu.size };
-				}
-			case AT_X87:
-				return { ArgTypeInfo::op_memory, atu.size };
-			default:
-				assert(false);
-			}
-			return { ArgTypeInfo::op_int, 0xcccccccc };
-		}
-
-		ArgTypeInfo create_argtypeinfo(const ArgTypeUnit &restype, const ArgTypeList &atlist) {
-			ArgTypeInfo ati;
-			if (restype.type != AT_Void && need_pass_by_memory(restype.size)) {
-				ati.resdata = { ArgTypeInfo::op_memory, restype.size };
-			}
-			else {
-				//ati.resdata = { ArgTypeInfo::op_struct, restype.size };
-				//ati.resstutype = get_argstructtypeinfo(restype);
-			}
-			for (auto &type : atlist) {
-				ArgTypeInfo::Data data = get_argtypeinfo_data(*type);
-				ati.typelist.push_back(data);
-				if (data.first == ArgTypeInfo::op_struct) {
-					ati.structlist.push_back(get_argstructtypeinfo(*type));
+					auto &e = list.front();
+					type = e.type;
+					data = e.data;
+					list.pop_front();
+					return true;
 				}
 			}
-			return ati;
-		}
 
-		void push_struct_data(ArgumentList &list, const void *t, const ArgStructTypeInfo &structinfo) {
-			unsigned int size = structinfo.size;
+			unsigned int get_int_count() const {
+				return _int_count;
+			}
+			unsigned int get_float_count() const {
+				return _float_count;
+			}
+			unsigned int get_memory_count() const {
+				return _memory_count;
+			}
+
+			void set_resstutype(const ArgTypeInfo::StructTypeData &asti) {
+				this->retdata.setstd(asti);
+			}
+			const ArgTypeInfo::StructTypeData& resstutype() const {
+				assert(retdata.type != 0);
+				return retdata.getstd();
+			}
+			void set_restype(ArgType at) {
+				retdata.type = static_cast<uint8_t>(at);
+			}
+			void set_restype(const ArgTypeInfo::RetData &rd) {
+				retdata = rd;
+			}
+			ArgType restype() const {
+				return static_cast<ArgType>(retdata.type);
+			}
+			const ArgTypeInfo::RetData& get_retdata() const {
+				return retdata;
+			}
+
+			//private:
+			DataList list;
+			unsigned int _int_count = 0;
+			unsigned int _float_count = 0;
+			unsigned int _memory_count = 0;
+			ArgTypeInfo::RetData retdata;
+		};
+
+		void push_struct_data(ArgumentList &list, const void *t, const ArgTypeInfo::StructPassData &structinfo, unsigned int size) {
 			unsigned int count = size > 8 ? 2 : 1;
 			byte *p = (byte*)t;
 			for (unsigned int i = 0; i < count; ++i) {
-				ArgType type = static_cast<ArgType>(structinfo.list[i]);
-				JitFFI::push_memory<uint64_t>(p, size, [&](uint64_t v) { list.push(type, v); });
+				ArgTypeInfo::OP type = structinfo.get(i);
+				JitFFI::push_memory<uint64_t>(p, ((size > 8) ? 8 : size), [&](uint64_t v) { list.push(type, v); });
 				p += 8;
 				size -= 8;
 			}
@@ -454,30 +597,25 @@ namespace JitFFI
 		ArgumentList create_argumentlist(const ArgTypeInfo &ati, const ArgDataList &datalist) {
 			ArgumentList list;
 			auto iter = datalist.begin();
-			auto siter = ati.structlist.begin();
-			assert(ati.typelist.size() == datalist.size());
-			if (ati.resdata.first == ArgTypeInfo::op_memory) {
-				list.push(AT_Void, 0);
+			if (ati.restype.type == AT_Memory) {
+				list.push(ArgTypeInfo::op_void, 0);
 			}
-			else {
-				list.set_restype(ati.restype);
-				list.set_resstutype(&ati.resstutype);
-			}
-			for (auto &type : ati.typelist) {
-				switch (type.first) {
+			list.set_restype(ati.restype);
+
+			for (unsigned int i = 0; i != ati.size; ++i) {
+				auto &type = ati.typelist.get()[i];
+				switch (type.op) {
 				case ArgTypeInfo::op_int:
-					list.push(AT_Integer, convert_uint64(*iter, type.second));
+					list.push(ArgTypeInfo::op_int, convert_uint64(*iter, type.size));
 					break;
 				case ArgTypeInfo::op_float:
-					list.push(AT_SSE, convert_uint64(*iter, type.second));
+					list.push(ArgTypeInfo::op_float, convert_uint64(*iter, type.size));
 					break;
 				case ArgTypeInfo::op_memory:
-					list.push_memory(*iter, type.second);
+					list.push_memory(*iter, type.size);
 					break;
 				case ArgTypeInfo::op_struct: {
-					assert(siter != ati.structlist.end());
-					push_struct_data(list, *iter, *siter);
-					++siter;
+					push_struct_data(list, *iter, type.getspd(), type.size);
 					break;
 				}
 				default:
@@ -488,25 +626,28 @@ namespace JitFFI
 			}
 			return list;
 		}
+	}
 
-		void create_argument(JitFuncCallerCreater &jfcc, ArgumentList &list) {
-			ArgType type;
+	namespace SysV64
+	{
+		static void create_argument(JitFuncCallerCreater &jfcc, ArgumentList &list) {
+			ArgTypeInfo::OP type;
 			uint64_t data;
 
 			jfcc.init_addarg_count(list.get_int_count(), list.get_float_count(), list.get_memory_count());
 
 			while (list.get_next(type, data)) {
 				switch (type) {
-				case AT_Void:
+				case ArgTypeInfo::op_void:
 					jfcc.add_void();
 					break;
-				case AT_Integer:
+				case ArgTypeInfo::op_int:
 					jfcc.add_int(data);
 					break;
-				case AT_SSE:
+				case ArgTypeInfo::op_float:
 					jfcc.add_double(data);
 					break;
-				case AT_Memory:
+				case ArgTypeInfo::op_memory:
 					jfcc.push(data);
 					break;
 				default:
@@ -515,14 +656,62 @@ namespace JitFFI
 			}
 		}
 
-		void create_return(JitFuncCallerCreater &jfcc, ArgumentList &list) {
-			//if (!list.return_by_memory()) {
-			//	if (list.)
-			//}
-			if (list.restype() == AT_X87) {
-				OpCode_x64::mov_rbx_rdi(jfcc.data());
-				OpCode_x64::mov_st0_prbx(jfcc.data());
+		static void create_return_base(JitFuncCallerCreater &jfcc, ArgType type, unsigned int rec[]) {
+			switch (type) {
+			case AT_Void:
+				break;
+			case AT_Integer:
+				if (rec[0] == 0) {
+					OpCode_x64::mov_prbx_rax(jfcc.data());
+					rec[0] = 1;
+				}
+				else {
+					OpCode_x64::mov_prbx_rdx(jfcc.data());
+				}
+				break;
+			case AT_SSE:
+			case AT_SSEUP:
+				if (rec[1] == 0) {
+					OpCode_x64::mov_prbx_xmm0(jfcc.data());
+					rec[1] = 1;
+				}
+				else {
+					OpCode_x64::mov_prbx_xmm1(jfcc.data());
+				}
+				break;
+			case AT_X87:
+			case AT_X87UP:
 				OpCode_x64::mov_prbx_st0(jfcc.data());
+				break;
+			case AT_ComplexX87:
+				assert(false); // TODO
+				OpCode_x64::mov_prbx_st0(jfcc.data());
+				OpCode_x64::add_rbx_byte(jfcc.data(), 8);
+				//OpCode_x64::mov_prbx_st1(jfcc.data());
+				break;
+			default:
+				printf("%d\n", type);
+				assert(false);
+			}
+		}
+
+		static void create_return(JitFuncCallerCreater &jfcc, ArgumentList &list) {
+			if (list.restype() != AT_Memory) {
+				unsigned int rec[2] = { 0 }; // rax/rdx, xmm0/xmm1
+				if (list.restype() == AT_Struct) {
+					auto &rd = list.get_retdata();
+					auto &st = list.resstutype();
+					if (rd.size > 0) {
+						create_return_base(jfcc, st.get(0), rec);
+					}
+					if (rd.size > 8) {
+						OpCode_x64::add_rbx_byte(jfcc.data(), 8);
+						create_return_base(jfcc, st.get(1), rec);
+					}
+				}
+				else {
+					create_return_base(jfcc, list.restype(), rec);
+				}
 			}
 		}
 
@@ -563,6 +752,12 @@ namespace JitFFI
 			assert(adlist.size() < UINT32_MAX);
 
 			ArgumentList list = create_argumentlist(get_argtypeinfo(argumentinfo), adlist);
+
+			//printf("<");
+			//for (auto &e : list.list) {
+			//	printf("(%d 0x%llX)\n", e.type, e.data);
+			//}
+			//printf(">\n");
 
 			create_function_caller(jfc, list, func);
 		}

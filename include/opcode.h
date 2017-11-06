@@ -273,6 +273,31 @@ namespace JitFFI
 			jfc.push(0x66, 0x48, 0x0f, 0x6e, 0xf8);
 		}
 
+		inline void mov_rax_xmm0(JitFuncCreater &jfc) {
+			jfc.push(0x66, 0x48, 0x0f, 0x7e, 0xc0);
+		}
+		inline void mov_rax_xmm1(JitFuncCreater &jfc) {
+			jfc.push(0x66, 0x48, 0x0f, 0x7e, 0xc8);
+		}
+		inline void mov_prax_xmm0(JitFuncCreater &jfc) {
+			jfc.push(0x66, 0x0f, 0xd6, 0x00);
+		}
+		inline void mov_prax_xmm1(JitFuncCreater &jfc) {
+			jfc.push(0x66, 0x0f, 0xd6, 0x08);
+		}
+		inline void mov_prbx_rax(JitFuncCreater &jfc) {
+			jfc.push(0x48, 0x89, 0x03);
+		}
+		inline void mov_prbx_rdx(JitFuncCreater &jfc) {
+			jfc.push(0x48, 0x89, 0x13);
+		}
+		inline void mov_prbx_xmm0(JitFuncCreater &jfc) {
+			jfc.push(0x66, 0x0f, 0xd6, 0x03);
+		}
+		inline void mov_prbx_xmm1(JitFuncCreater &jfc) {
+			jfc.push(0x66, 0x0f, 0xd6, 0x0b);
+		}
+
 		inline void mov_prsp_rax(JitFuncCreater &jfc, byte offset) {
 			jfc.push(0x48, 0x89, 0x44, 0x24);
 			jfc.push(offset);

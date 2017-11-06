@@ -81,6 +81,21 @@ namespace JitFFI
 
 namespace JitFFI
 {
+	template <typename ArgTypeInfo, typename ArgPassData, typename ArgRetData, ArgPassData(pass_f)(const ArgTypeUnit &), ArgRetData(ret_f)(const ArgTypeUnit &)>
+	static ArgTypeInfo create_argtypeinfo(const ArgTypeUnit &restype, const ArgTypeList &atlist) {
+		assert(atlist.size() < UINT32_MAX);
+		ArgTypeInfo ati(static_cast<uint32_t>(atlist.size()));
+		ati.restype = ret_f(restype);
+		unsigned int i = 0;
+		for (auto &type : atlist) {
+			ati.typelist.get()[i++] = pass_f(*type);
+		}
+		return ati;
+	}
+}
+
+namespace JitFFI
+{
 	inline unsigned int get_value_count(size_t size, size_t psize) {
 		assert(size < UINT32_MAX);
 		unsigned int count = static_cast<unsigned int>(size / psize);

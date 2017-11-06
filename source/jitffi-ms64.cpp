@@ -122,10 +122,89 @@ namespace JitFFI
 {
 	namespace MS64
 	{
+		struct ArgTypeInfo
+		{
+			enum OP : uint16_t
+			{
+				op_void,
+				op_int,
+				op_float,
+				op_push,
+				op_push_pointer,
+			};
+			using Size = uint16_t;
+			using Data = std::pair<OP, Size>;
+
+			ArgTypeInfo(uint32_t size)
+				: size(size), typelist((Data*)std::malloc(size * sizeof(Data))) {}
+
+			struct Deleter { void operator()(Data *p) { std::free(p); } };
+
+			uint32_t size;
+			Data restype;
+			std::unique_ptr<Data, Deleter> typelist;
+		};
+
+		constexpr int ix = sizeof(ArgTypeInfo);
+
+		//==============================
+		// * Get ArgTypeInfo
+		//==============================
+
+		static ArgTypeInfo::Data get_argtypeinfo_pass_data(const ArgTypeUnit &atu);
+		static ArgTypeInfo::Data get_argtypeinfo_ret_data(const ArgTypeUnit &atu);
+
+		static ArgTypeInfo create_argtypeinfo(const ArgTypeUnit &restype, const ArgTypeList &atlist) {
+			return JitFFI::create_argtypeinfo<ArgTypeInfo, ArgTypeInfo::Data, ArgTypeInfo::Data, get_argtypeinfo_pass_data, get_argtypeinfo_ret_data>(restype, atlist);
+		}
+
+		static bool need_pass_by_pointer(size_t n) {
+			return (n != 1 && n != 2 && n != 4 && n != 8);
+		}
+		static bool need_return_by_pointer(size_t n) {
+			return need_pass_by_pointer(n);
+		}
+
+		static ArgTypeInfo::Data get_argtypeinfo_pass_data(const ArgTypeUnit &atu) {
+			switch (atu.type) {
+			case AT_Int:
+				return { ArgTypeInfo::op_int, atu.size };
+			case AT_Float:
+				return { ArgTypeInfo::op_float, atu.size };
+				break;
+			case AT_Memory:
+				return { ArgTypeInfo::op_push_pointer, atu.size };
+				break;
+			case AT_Struct:
+				if (need_pass_by_pointer(atu.size)) {
+					return { ArgTypeInfo::op_push_pointer, atu.size };
+				}
+				else {
+					return { ArgTypeInfo::op_int, atu.size };
+				}
+				break;
+			default:
+				assert(false);
+			}
+			return { ArgTypeInfo::op_int, 0xcccccccc };
+		}
+
+		static ArgTypeInfo::Data get_argtypeinfo_ret_data(const ArgTypeUnit &atu) {
+			if (atu.type != AT_Void && need_return_by_pointer(atu.size)) {
+				return { ArgTypeInfo::op_push_pointer, atu.size };
+			}
+			else {
+				return { ArgTypeInfo::op_int, atu.size };
+			}
+		}
+	}
+
+	namespace MS64
+	{
 		class ArgumentList
 		{
 			struct Data {
-				ArgType type;
+				ArgTypeInfo::OP type;
 				uint64_t data;
 			};
 			using DataList = std::list<Data>;
@@ -133,7 +212,7 @@ namespace JitFFI
 		public:
 			ArgumentList() = default;
 
-			void push(ArgType type, uint64_t v) {
+			void push(ArgTypeInfo::OP type, uint64_t v) {
 				list.push_front({ type, v });
 			}
 			unsigned int push_memory(uint64_t v) {
@@ -159,7 +238,7 @@ namespace JitFFI
 				}
 			}
 
-			bool get_next(ArgType &type, uint64_t &data) {
+			bool get_next(ArgTypeInfo::OP &type, uint64_t &data) {
 				if (list.empty()) {
 					return false;
 				}
@@ -192,88 +271,21 @@ namespace JitFFI
 			unsigned int _ressize = 0;
 		};
 
-		struct ArgTypeInfo
-		{
-			enum OP
-			{
-				op_int,
-				op_float,
-				op_push,
-				op_push_pointer,
-			};
-			using Size = unsigned int;
-			using Data = std::pair<OP, Size>;
-
-			std::vector<Data> typelist;
-			Data restype;
-		};
-
-		//
-
-		inline bool need_pass_by_pointer(size_t n) {
-			return (n != 1 && n != 2 && n != 4 && n != 8);
-		}
-		inline bool need_return_by_pointer(size_t n) {
-			return need_pass_by_pointer(n);
-		}
-
-		//
-
-		ArgTypeInfo::Data get_argtypeinfo_data(const ArgTypeUnit &atu) {
-			switch (atu.type) {
-			case AT_Int:
-				return { ArgTypeInfo::op_int, atu.size };
-			case AT_Float:
-				return { ArgTypeInfo::op_float, atu.size };
-				break;
-			case AT_Memory:
-				return { ArgTypeInfo::op_push_pointer, atu.size };
-				break;
-			case AT_Struct:
-				if (need_pass_by_pointer(atu.size)) {
-					return { ArgTypeInfo::op_push_pointer, atu.size };
-				}
-				else {
-					return { ArgTypeInfo::op_int, atu.size };
-				}
-				break;
-			default:
-				assert(false);
-			}
-			return { ArgTypeInfo::op_int, 0xcccccccc };
-		}
-
-		//
-
-		ArgTypeInfo create_argtypeinfo(const ArgTypeUnit &restype, const ArgTypeList &atlist)
-		{
-			ArgTypeInfo ati;
-			if (restype.type != AT_Void && need_return_by_pointer(restype.size)) {
-				ati.restype = { ArgTypeInfo::op_push_pointer, restype.size };
-			}
-			else {
-				ati.restype = { ArgTypeInfo::op_int, restype.size };
-			}
-			for (auto &type : atlist) {
-				ati.typelist.push_back(get_argtypeinfo_data(*type));
-			}
-			return ati;
-		}
 
 		void create_argumentlist_base(ArgumentList &list, const ArgTypeInfo::Data &type, const void *data) {
 			switch (type.first) {
 			case ArgTypeInfo::op_int:
-				list.push(AT_Int, convert_uint64(data, type.second));
+				list.push(ArgTypeInfo::op_int, convert_uint64(data, type.second));
 				break;
 			case ArgTypeInfo::op_float:
-				list.push(AT_Float, convert_uint64(data, type.second));
+				list.push(ArgTypeInfo::op_float, convert_uint64(data, type.second));
 				break;
 			case ArgTypeInfo::op_push:
-				list.push(AT_Int, convert_uint64(data, type.second));
+				list.push(ArgTypeInfo::op_push, convert_uint64(data, type.second));
 				break;
 			case ArgTypeInfo::op_push_pointer: {
 				unsigned int offset = list.push_memory(data, type.second);
-				list.push(AT_Memory, offset);
+				list.push(ArgTypeInfo::op_push_pointer, offset);
 				break;
 			}
 			default:
@@ -285,23 +297,27 @@ namespace JitFFI
 		ArgumentList create_argumentlist(const ArgTypeInfo &ati, const ArgDataList &datalist) {
 			ArgumentList list;
 			auto iter = datalist.begin();
-			assert(ati.typelist.size() == datalist.size());
 			if (ati.restype.first == ArgTypeInfo::op_push_pointer) {
-				list.push(AT_Void, 0);
+				list.push(ArgTypeInfo::op_void, 0);
 				assert(ati.restype.second != 0);
 			}
 			else {
 				list.set_ressize(ati.restype.second);
 			}
-			for (auto &type : ati.typelist) {
-				create_argumentlist_base(list, type, *iter);
+			for (unsigned int i = 0; i != ati.size; ++i) {
+				auto &type = ati.typelist.get()[i];
+				auto &data = *iter;
+				create_argumentlist_base(list, type, data);
 				++iter;
 			}
 			return list;
 		}
+	}
 
+	namespace MS64
+	{
 		void create_argument(JitFuncCallerCreater &jfcc, ArgumentList &list) {
-			ArgType type;
+			ArgTypeInfo::OP type;
 			uint64_t data;
 
 			jfcc.init_addarg_count(list.size(), 0, 0);
@@ -314,16 +330,16 @@ namespace JitFFI
 
 			while (list.get_next(type, data)) {
 				switch (type) {
-				case AT_Void:
+				case ArgTypeInfo::op_void:
 					jfcc.add_void();
 					break;
-				case AT_Int:
+				case ArgTypeInfo::op_int:
 					jfcc.add_int(data);
 					break;
-				case AT_Float:
+				case ArgTypeInfo::op_float:
 					jfcc.add_double(data);
 					break;
-				case AT_Memory:
+				case ArgTypeInfo::op_push_pointer:
 					jfcc.add_int_rbx();
 					assert(data * 8 < UINT32_MAX);
 					jfcc.add_rbx(static_cast<uint32_t>(data * 8));
