@@ -20,8 +20,10 @@ namespace JitFFI
 			return *reinterpret_cast<const uint8_t*>(dat);
 		}
 		else {
-			assert(false);
-			return 0xcccccccc;
+			assert(n <= 4);
+			uint32_t v = 0;
+			memcpy(&v, dat, n);
+			return v;
 		}
 	}
 
@@ -30,8 +32,20 @@ namespace JitFFI
 		if (n == 8) {
 			return *reinterpret_cast<const uint64_t*>(dat);
 		}
+		if (n == 4) {
+			return *reinterpret_cast<const uint32_t*>(dat);
+		}
+		else if (n == 2) {
+			return *reinterpret_cast<const uint16_t*>(dat);
+		}
+		else if (n == 1) {
+			return *reinterpret_cast<const uint8_t*>(dat);
+		}
 		else {
-			return convert_uint32(dat, n);
+			assert(n <= 8);
+			uint64_t v = 0;
+			memcpy(&v, dat, n);
+			return v;
 		}
 	}
 	template <typename T>
@@ -53,29 +67,6 @@ namespace JitFFI
 		unsigned int rem = count % pack;
 		unsigned int result = (rem != 0) ? count + pack - rem : count;
 		return { result + size, result };
-	}
-
-	inline std::list<unsigned> get_postlist(const std::list<unsigned> &sizelist, unsigned int align) {
-		std::list<unsigned> postlist;
-		unsigned int count = 0;
-		for (unsigned int size : sizelist) {
-			unsigned int post;
-			std::tie(count, post) = get_next_post_base(count, size, align);
-			postlist.push_back(post);
-		}
-		postlist.push_back(count);
-		return postlist;
-	}
-
-	inline auto get_next_post_f(std::function<unsigned int()> get_next_size, const unsigned int align) {
-		unsigned int count = 0;
-
-		return [=]() mutable {
-			unsigned int size = get_next_size();
-			unsigned int post;
-			std::tie(count, post) = get_next_post_base(count, size, align);
-			return post;
-		};
 	}
 }
 

@@ -80,17 +80,15 @@ namespace JitFFI
 		return 0x8 + get_offset() + push_offset;
 	}
 
-	byte& JitFuncCallerCreater::sub_rsp_unadjusted() {
+	void JitFuncCallerCreater::sub_rsp() {
 		OpCode_x64::sub_rsp_byte(jfc, 0x8);
-		return *(jfc.end() - 1);
+		sub_rsp_ptr = jfc.end() - 1;
 	}
 
 	void JitFuncCallerCreater::add_rsp() {
 		OpCode_x64::add_rsp_uint32(jfc, get_add_offset());  // !NOTICE! this num may > 1 byte.
-	}
-
-	void JitFuncCallerCreater::adjust_sub_rsp(byte &d) {
-		d += get_offset();
+		assert(sub_rsp_ptr);
+		*sub_rsp_ptr += get_offset();
 	}
 
 	void JitFuncCallerCreater::push(uint64_t dat) {

@@ -84,8 +84,6 @@ namespace JitFFI
 
 		void sub_rsp();
 		void add_rsp();
-		byte& sub_rsp_unadjusted();
-		void adjust_sub_rsp(byte &d);
 
 		template <typename _FTy> void init_func(_FTy *fp) { func = fp; }
 		virtual void init_addarg_count(unsigned int int_c, unsigned int dou_c, unsigned int mem_c = 0) = 0;
@@ -94,7 +92,9 @@ namespace JitFFI
 		virtual void add_int(uint64_t dat) = 0;
 		virtual void add_int_uint32(uint32_t dat) = 0;
 		virtual void add_int_rbx() = 0;
+		virtual void add_int_prax() = 0;
 		virtual void add_double(uint64_t dat) = 0;
+		virtual void add_double_prax() = 0;
 
 		void push(uint64_t);
 
@@ -114,6 +114,7 @@ namespace JitFFI
 		void* func;
 		unsigned int push_count = 0;
 		bool have_init = false;
+		byte* sub_rsp_ptr = nullptr;
 
 		byte get_offset();
 		byte get_sub_offset();

@@ -70,7 +70,9 @@ namespace JitFFI
 			void add_int(uint64_t dat);
 			void add_int_uint32(uint32_t dat);
 			void add_int_rbx();
+			void add_int_prax();
 			void add_double(uint64_t dat);
+			void add_double_prax();
 
 			void call();
 
@@ -91,8 +93,14 @@ namespace JitFFI
 		void JitFuncCallerCreaterPlatform::add_int_rbx() {
 			return _add_int([&](unsigned int c) { return OpCode_sysv64::add_int_rbx(jfc, c); });
 		}
+		void JitFuncCallerCreaterPlatform::add_int_prax() {
+			return _add_int([&](unsigned int c) { return OpCode_sysv64::add_int_prax(jfc, c); });
+		}
 		void JitFuncCallerCreaterPlatform::add_double(uint64_t dat) {
 			return _add_double([&](unsigned int c) { return OpCode_sysv64::add_double(jfc, dat, c); });
+		}
+		void JitFuncCallerCreaterPlatform::add_double_prax() {
+			return _add_double([&](unsigned int c) { return OpCode_sysv64::add_double_prax(jfc, c); });
 		}
 
 		void JitFuncCallerCreaterPlatform::add_void() {
@@ -556,27 +564,14 @@ namespace JitFFI
 				return _memory_count;
 			}
 
-			void set_resstutype(const ArgTypeInfo::StructTypeData &asti) {
-				this->retdata.setstd(asti);
-			}
-			const ArgTypeInfo::StructTypeData& resstutype() const {
-				assert(retdata.type != 0);
-				return retdata.getstd();
-			}
-			void set_restype(ArgType at) {
-				retdata.type = static_cast<uint8_t>(at);
-			}
-			void set_restype(const ArgTypeInfo::RetData &rd) {
-				retdata = rd;
-			}
-			ArgType restype() const {
-				return static_cast<ArgType>(retdata.type);
-			}
 			const ArgTypeInfo::RetData& get_retdata() const {
 				return retdata;
 			}
+			void set_retdata(const ArgTypeInfo::RetData &rd) {
+				retdata = rd;
+			}
 
-			//private:
+		private:
 			DataList list;
 			unsigned int _int_count = 0;
 			unsigned int _float_count = 0;
@@ -584,23 +579,22 @@ namespace JitFFI
 			ArgTypeInfo::RetData retdata;
 		};
 
-		void push_struct_data(ArgumentList &list, const void *t, const ArgTypeInfo::StructPassData &structinfo, unsigned int size) {
-			unsigned int count = size > 8 ? 2 : 1;
-			byte *p = (byte*)t;
-			for (unsigned int i = 0; i < count; ++i) {
-				ArgTypeInfo::OP type = structinfo.get(i);
-				JitFFI::push_memory<uint64_t>(p, ((size > 8) ? 8 : size), [&](uint64_t v) { list.push(type, v); });
-				p += 8;
-				size -= 8;
+		static void push_struct_data(ArgumentList &list, const void *t, const ArgTypeInfo::StructPassData &structinfo, unsigned int size) {
+			assert(size <= 16);
+			if (size > 0) {
+				list.push(structinfo.get(0), convert_uint64(t, std::min<unsigned>(size, 8)));
+			}
+			if (size > 8) {
+				list.push(structinfo.get(1), convert_uint64((byte*)t + 8, size - 8));
 			}
 		}
-		ArgumentList create_argumentlist(const ArgTypeInfo &ati, const ArgDataList &datalist) {
+		static ArgumentList create_argumentlist(const ArgTypeInfo &ati, const ArgDataList &datalist) {
 			ArgumentList list;
 			auto iter = datalist.begin();
 			if (ati.restype.type == AT_Memory) {
 				list.push(ArgTypeInfo::op_void, 0);
 			}
-			list.set_restype(ati.restype);
+			list.set_retdata(ati.restype);
 
 			for (unsigned int i = 0; i != ati.size; ++i) {
 				auto &type = ati.typelist.get()[i];
@@ -630,6 +624,10 @@ namespace JitFFI
 
 	namespace SysV64
 	{
+		//==============================
+		// * Create
+		//==============================
+
 		static void create_argument(JitFuncCallerCreater &jfcc, ArgumentList &list) {
 			ArgTypeInfo::OP type;
 			uint64_t data;
@@ -656,27 +654,80 @@ namespace JitFFI
 			}
 		}
 
-		static void create_return_base(JitFuncCallerCreater &jfcc, ArgType type, unsigned int rec[]) {
+		static void create_return_base(JitFuncCallerCreater &jfcc, ArgType type, unsigned int size, unsigned int rec[]);
+		static void create_return(JitFuncCallerCreater &jfcc, const ArgTypeInfo::RetData &retdata) {
+			if (retdata.type != AT_Memory) {
+				unsigned int rec[2] = { 0 }; // rax/rdx, xmm0/xmm1
+				if (retdata.type == AT_Struct) {
+					auto &st = retdata.getstd();
+					if (retdata.size > 0) {
+						create_return_base(jfcc, st.get(0), std::min<unsigned>(retdata.size, 8), rec);
+					}
+					if (retdata.size > 8) {
+						OpCode_x64::add_rbx_byte(jfcc.data(), 8);
+						create_return_base(jfcc, st.get(1), retdata.size - 8, rec);
+					}
+				}
+				else {
+					create_return_base(jfcc, static_cast<ArgType>(retdata.type), retdata.size, rec);
+				}
+			}
+		}
+
+		static void create_return_copy(JitFuncCallerCreater &jfcc, unsigned int size) {
+			OpCode_x64::mov_rsi_rsp(jfcc.data());
+			OpCode_x64::mov_rdi_rbx(jfcc.data());
+			OpCode_x64::mov_rcx_uint32(jfcc.data(), size);
+			OpCode_x64::movsb_prdi_prsi_rep(jfcc.data());
+		}
+
+		static void create_return_base(JitFuncCallerCreater &jfcc, ArgType type, unsigned int size, unsigned int rec[]) {
 			switch (type) {
 			case AT_Void:
 				break;
 			case AT_Integer:
 				if (rec[0] == 0) {
-					OpCode_x64::mov_prbx_rax(jfcc.data());
+					if (size == 8) {
+						OpCode_x64::mov_prbx_rax(jfcc.data());
+					}
+					else {
+						OpCode_x64::push_rax(jfcc.data());
+						create_return_copy(jfcc, size);
+						OpCode_x64::pop_rax(jfcc.data());
+					}
 					rec[0] = 1;
 				}
 				else {
-					OpCode_x64::mov_prbx_rdx(jfcc.data());
+					if (size == 8) {
+						OpCode_x64::mov_prbx_rdx(jfcc.data());
+					}
+					else {
+						OpCode_x64::push_rdx(jfcc.data());
+						create_return_copy(jfcc, size);
+						OpCode_x64::pop_rdx(jfcc.data());
+					}
 				}
 				break;
 			case AT_SSE:
 			case AT_SSEUP:
 				if (rec[1] == 0) {
-					OpCode_x64::mov_prbx_xmm0(jfcc.data());
+					if (size == 8) {
+						OpCode_x64::movsd_prbx_xmm0(jfcc.data());
+					}
+					else {
+						assert(size == 4);
+						OpCode_x64::movss_prbx_xmm0(jfcc.data());
+					}
 					rec[1] = 1;
 				}
 				else {
-					OpCode_x64::mov_prbx_xmm1(jfcc.data());
+					if (size == 8) {
+						OpCode_x64::movsd_prbx_xmm1(jfcc.data());
+					}
+					else {
+						assert(size == 4);
+						OpCode_x64::movss_prbx_xmm1(jfcc.data());
+					}
 				}
 				break;
 			case AT_X87:
@@ -687,50 +738,43 @@ namespace JitFFI
 				assert(false); // TODO
 				OpCode_x64::mov_prbx_st0(jfcc.data());
 				OpCode_x64::add_rbx_byte(jfcc.data(), 8);
-				//OpCode_x64::mov_prbx_st1(jfcc.data());
+				OpCode_x64::mov_prbx_st0(jfcc.data());
 				break;
 			default:
 				printf("%d\n", type);
 				assert(false);
 			}
 		}
+	}
 
-		static void create_return(JitFuncCallerCreater &jfcc, ArgumentList &list) {
-			if (list.restype() != AT_Memory) {
-				unsigned int rec[2] = { 0 }; // rax/rdx, xmm0/xmm1
-				if (list.restype() == AT_Struct) {
-					auto &rd = list.get_retdata();
-					auto &st = list.resstutype();
-					if (rd.size > 0) {
-						create_return_base(jfcc, st.get(0), rec);
-					}
-					if (rd.size > 8) {
-						OpCode_x64::add_rbx_byte(jfcc.data(), 8);
-						create_return_base(jfcc, st.get(1), rec);
-					}
-				}
-				else {
-					create_return_base(jfcc, list.restype(), rec);
-				}
-			}
-		}
-
+	namespace SysV64
+	{
 		//
 
 		ArgumentInfo get_argumentinfo(const ArgTypeUnit &restype, const ArgTypeList &atlist) {
 			ArgTypeInfo *p_ati = new ArgTypeInfo(create_argtypeinfo(restype, atlist));
 			return ArgumentInfo(P_SysV64, p_ati);
 		}
-		const ArgTypeInfo& get_argtypeinfo(const ArgumentInfo &argumentinfo) {
+		static const ArgTypeInfo& get_argtypeinfo(const ArgumentInfo &argumentinfo) {
 			return argumentinfo.data<P_SysV64, ArgTypeInfo>();
 		}
 
-		void create_function_caller(JitFuncCreater &jfc, ArgumentList &list, void *func)
+		static void create_function_caller_head(JitFuncCallerCreater &jfcc) {
+			OpCode_x64::push_rbx(jfcc.data());
+			OpCode_x64::sub_rsp_byte(jfcc.data(), 0x8);
+			jfcc.sub_rsp();
+		}
+		static void create_function_caller_foot(JitFuncCallerCreater &jfcc) {
+			jfcc.add_rsp();
+			OpCode_x64::add_rsp_byte(jfcc.data(), 0x8);
+			OpCode_x64::pop_rbx(jfcc.data());
+			jfcc.ret();
+		}
+
+		static void create_function_caller(JitFuncCreater &jfc, ArgumentList &list, void *func)
 		{
 			JitFuncCallerCreaterPlatform jfcc(jfc, func);
-			OpCode_x64::push_rbx(jfc);
-			OpCode_x64::sub_rsp_byte(jfc, 0x8);
-			byte &v = jfcc.sub_rsp_unadjusted();
+			create_function_caller_head(jfcc);
 
 			OpCode_x64::mov_rbx_rdi(jfc);
 			create_argument(jfcc, list);
@@ -738,13 +782,9 @@ namespace JitFFI
 			jfcc.call();
 
 			OpCode_x64::mov_rdi_rbx(jfc);
-			create_return(jfcc, list);
+			create_return(jfcc, list.get_retdata());
 
-			jfcc.add_rsp();
-			jfcc.adjust_sub_rsp(v);
-			OpCode_x64::add_rsp_byte(jfc, 0x8);
-			OpCode_x64::pop_rbx(jfc);
-			jfcc.ret();
+			create_function_caller_foot(jfcc);
 		}
 
 		void create_function_caller(JitFuncCreater &jfc, void *func, const ArgumentInfo &argumentinfo, const ArgDataList &adlist)

@@ -51,6 +51,7 @@ inline void run_objdump(JitFuncCreater &jfc)
 	printf("\n");
 }
 
+template <typename T>
 inline auto Compile(CallerProcess *handler, bool use_new_memory = false)
 {
 	static JitFuncPool global_pool(0x1000, JitFuncPool::ReadWrite);
@@ -68,9 +69,9 @@ inline auto Compile(CallerProcess *handler, bool use_new_memory = false)
 
 	handler(jfc);
 
-	//run_objdump(jfc);
+	run_objdump(jfc);
 
-	return jf.func<uint64_t(void*)>();
+	return jf.func<T>();
 }
 
 template <typename _FTy>
@@ -80,9 +81,23 @@ inline void Run(_FTy f, void *dst = nullptr)
 	printf("[Return:0x%016llX]\n", v);
 }
 
+template <typename _FTy>
+inline void Run(_FTy f, void* list[], void *dst = nullptr)
+{
+	uint64_t v = f(dst, list);
+	printf("[Return:0x%016llX]\n", v);
+}
+
 inline void Call(CallerProcess *handler, void *dst = nullptr)
 {
-	auto f = Compile(handler);
+	auto f = Compile<uint64_t(void*)>(handler);
 
 	Run(f, dst);
+}
+
+inline void Call(CallerProcess *handler, void* list[], void *dst = nullptr)
+{
+	auto f = Compile<uint64_t(void*, void*[])>(handler);
+
+	Run(f, list, dst);
 }

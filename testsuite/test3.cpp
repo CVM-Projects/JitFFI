@@ -73,6 +73,35 @@ type4 print_struct4(type4 t1, type4 t2)
 	return type4{ 5, 6.0 };
 }
 
+typedef struct {
+	uint8_t d0;
+	uint8_t d0x[7];
+	//uint8_t d1;
+	//uint8_t d1x[7];
+	uint8_t d1;
+} type5;
+
+const ArgTypeUnit atu_type5(sizeof(type5), alignof(type5), {
+	//&atu_uint64,
+	&atu_uint8, &atu_uint8, &atu_uint8, &atu_uint8, &atu_uint8, &atu_uint8, &atu_uint8, &atu_uint8,
+	&atu_uint8
+});
+
+type5 print_struct5(type5 t1, type5 t2)
+{
+	print(t1.d0);
+	print(t1.d1);
+	print(t2.d0);
+	print(t2.d1);
+
+	type5 r;
+	r.d0 = 5;
+	r.d0x[1] = 1;
+	r.d1 = 6;
+
+	return r;
+}
+
 template <typename _FTy, typename _Ty>
 void Call_X(JitFuncCreater &jfc, _FTy &func, const ArgTypeUnit &atu, const _Ty &t1, const _Ty &t2)
 {
@@ -114,6 +143,18 @@ void Call_4(JitFuncCreater &jfc)
 	Call_X(jfc, print_struct4, atu_type4, t1, t2);
 }
 
+void Call_5(JitFuncCreater &jfc)
+{
+	type5 t1;
+	t1.d0 = 1;
+	t1.d1 = 2;
+	type5 t2;
+	t2.d0 = 3;
+	t2.d1 = 4;
+
+	Call_X(jfc, print_struct5, atu_type5, t1, t2);
+}
+
 void Call_NNN(JitFuncCreater &jfc)
 {
 	OpCode_x64::mov_st0_prsp(jfc);
@@ -146,8 +187,23 @@ int main()
 	printf("<0x%016llX>\n", *(uint64_t*)p);
 	print_struct4(*(type4*)p, *(type4*)p);
 
+	printf("===5===\n");
+	uint8_t *np = (uint8_t*)calloc(sizeof(type5) + 5, 1);
+	np[sizeof(type5) + 0] = 0x11;
+	np[sizeof(type5) + 1] = 0x22;
+	np[sizeof(type5) + 2] = 0x33;
+	np[sizeof(type5) + 3] = 0x44;
+	np[sizeof(type5) + 4] = 0x55;
+	Call(Call_5, np);
+	printf("<0x%016llX>\n", *(uint64_t*)np);
+	print_struct5(*(type5*)np, *(type5*)np);
+	for (unsigned int i = 0; i != sizeof(type5) + 5; ++i) {
+		printf("%02X ", np[i]);
+	}
+	printf("\n");
+
 	//Call(Call_NNN);
 
 	printf("===E===\n");
-	printf("<0x%016llX>\n", p);
+	printf("<0x%016llX>\n", (size_t)p);
 }
