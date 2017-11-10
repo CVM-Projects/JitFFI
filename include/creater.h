@@ -97,6 +97,7 @@ namespace JitFFI
 		virtual void add_double_prax() = 0;
 
 		void push(uint64_t);
+		void push_prax();
 
 		void sub_rbx(uint32_t dat);
 		void add_rbx(uint32_t dat);

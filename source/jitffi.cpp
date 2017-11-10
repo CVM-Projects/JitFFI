@@ -97,6 +97,11 @@ namespace JitFFI
 		push_count += 1;
 	}
 
+	void JitFuncCallerCreater::push_prax() {
+		OpCode_x64::push_prax(jfc);
+		push_count += 1;
+	}
+
 	void JitFuncCallerCreater::sub_rbx(uint32_t dat) {
 		OpCode_x64::sub_rbx_uint32(jfc, dat);
 	}
@@ -104,7 +109,7 @@ namespace JitFFI
 		OpCode_x64::add_rbx_uint32(jfc, dat);
 	}
 	void JitFuncCallerCreater::mov_rbx_rsp() {
-		OpCode_x64::mov_rbx_rsp(jfc);
+		OpCode_x64::mov(jfc, OpCode_x64::rbx, OpCode_x64::rsp);
 	}
 
 	void JitFuncCallerCreater::ret() {

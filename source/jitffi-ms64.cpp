@@ -52,6 +52,8 @@ namespace JitFFI
 {
 	namespace MS64
 	{
+		using namespace OpCode_x64;
+
 		class JitFuncCallerCreaterPlatform : public JitFuncCallerCreater
 		{
 		public:
@@ -143,14 +145,12 @@ namespace JitFFI
 			using Size = uint16_t;
 			using Data = std::pair<OP, Size>;
 
-			ArgTypeInfo(uint32_t size)
-				: size(size), typelist((Data*)std::malloc(size * sizeof(Data))) {}
+			explicit ArgTypeInfo(uint32_t num)
+				: num(num), typelist(num) {}
 
-			struct Deleter { void operator()(Data *p) { std::free(p); } };
-
-			uint32_t size;
-			Data restype;
-			std::unique_ptr<Data, Deleter> typelist;
+			uint32_t num;
+			Data retdata;
+			UPtrValVector<Data> typelist;
 		};
 
 		constexpr int ix = sizeof(ArgTypeInfo);
@@ -306,13 +306,13 @@ namespace JitFFI
 		static ArgumentList create_argumentlist(const ArgTypeInfo &ati, const ArgDataList &datalist) {
 			ArgumentList list;
 			auto iter = datalist.begin();
-			if (ati.restype.first == ArgTypeInfo::op_push_pointer) {
+			if (ati.retdata.first == ArgTypeInfo::op_push_pointer) {
 				list.push(ArgTypeInfo::op_void, 0);
 			}
-			assert(ati.restype.first == ArgTypeInfo::op_void || ati.restype.second != 0);
-			list.set_retdata(ati.restype);
-			for (unsigned int i = 0; i != ati.size; ++i) {
-				auto &type = ati.typelist.get()[i];
+			assert(ati.retdata.first == ArgTypeInfo::op_void || ati.retdata.second != 0);
+			list.set_retdata(ati.retdata);
+			for (unsigned int i = 0; i != ati.num; ++i) {
+				auto &type = ati.typelist[i];
 				auto &data = *iter;
 				create_argumentlist_base(list, type, data);
 				++iter;
@@ -403,12 +403,12 @@ namespace JitFFI
 			JitFuncCallerCreaterPlatform jfcc(jfc, func);
 			create_function_caller_head(jfcc);
 
-			OpCode_x64::mov_r12_rcx(jfc);
+			OpCode_x64::mov(jfc, r12, rcx);
 			create_argument(jfcc, list);
 
 			jfcc.call();
 
-			OpCode_x64::mov_rbx_r12(jfc);
+			OpCode_x64::mov(jfc, rbx, r12);
 			create_return(jfcc, list.get_retdata());
 
 			create_function_caller_foot(jfcc);

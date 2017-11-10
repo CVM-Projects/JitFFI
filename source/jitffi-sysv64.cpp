@@ -53,6 +53,8 @@ namespace JitFFI
 {
 	namespace SysV64
 	{
+		using namespace OpCode_x64;
+
 		class JitFuncCallerCreaterPlatform : public JitFuncCallerCreater
 		{
 		public:
@@ -242,14 +244,12 @@ namespace JitFFI
 				uint16_t size = 0;
 			};
 
-			ArgTypeInfo(uint32_t size)
-				: size(size), typelist((PassData*)std::malloc(size * sizeof(PassData))) {}
+			explicit ArgTypeInfo(uint32_t num)
+				: num(num), typelist(num) {}
 
-			struct Deleter { void operator()(PassData *p) { std::free(p); } };
-
-			uint32_t size;
-			RetData restype;
-			std::unique_ptr<PassData, Deleter> typelist;
+			uint32_t num;
+			RetData retdata;
+			UPtrValVector<PassData> typelist;
 		};
 
 		constexpr int ix = sizeof(ArgTypeInfo);
@@ -506,62 +506,76 @@ namespace JitFFI
 
 	namespace SysV64
 	{
-		//==============================
-		// * Get ArgumentList
-		//==============================
-
-		class ArgumentList
+		struct ArgOPCounter
 		{
-			struct Data {
-				ArgTypeInfo::OP type;
-				uint64_t data;
-			};
-			using DataList = std::list<Data>;
-
-		public:
-			ArgumentList() = default;
-
-			void push(ArgTypeInfo::OP type, uint64_t v) {
+			void add(ArgTypeInfo::OP type) {
 				switch (type) {
-				case ArgTypeInfo::op_void: _int_count++; break;
-				case ArgTypeInfo::op_int: _int_count++; break;
-				case ArgTypeInfo::op_float: _float_count++; break;
-				case ArgTypeInfo::op_memory: _memory_count++; break;
+				case ArgTypeInfo::op_void: int_count++; break;
+				case ArgTypeInfo::op_int: int_count++; break;
+				case ArgTypeInfo::op_float: float_count++; break;
+				case ArgTypeInfo::op_memory: memory_count++; break;
 				default: assert(false);
 				}
-				list.push_front({ type, v });
 			}
 
-			void push_memory(uint64_t v) {
-				list.push_front({ ArgTypeInfo::op_memory, v });
-				_memory_count++;
+			unsigned int int_count = 0;
+			unsigned int float_count = 0;
+			unsigned int memory_count = 0;
+		};
+
+		class ArgOPList
+		{
+			struct Data {
+				ArgTypeInfo::OP op;
+				unsigned int id;
+				unsigned int num;
+			};
+		public:
+			explicit ArgOPList(unsigned int num)
+				: _num(num) {}
+
+			void add(unsigned int id, ArgTypeInfo::OP op, unsigned int num = 0) {
+				assert(op != ArgTypeInfo::op_struct);
+				counter.add(op);
+				datalist.add({ op, id, num });
+			}
+			void add_stu(unsigned int id, const ArgTypeInfo::StructPassData &spd, unsigned int size) {
+				if (size > 0)
+					add(id, spd.get(0), (size > 8 ? 1 : 0));
+				if (size > 8)
+					add(id, spd.get(1), (size > 8 ? 1 : 0));
+			}
+			void add_mem(unsigned int id) {
+				add(id, ArgTypeInfo::op_memory, 0);
+			}
+			void add_mem(unsigned int id, size_t size) {
+				unsigned int count = get_value_count(size, 8);
+				unsigned int num = count;
+				while (count--) {
+					add(id, ArgTypeInfo::op_memory, num);
+				}
 			}
 
-			void push_memory(const void *dat, size_t size) {
-				JitFFI::push_memory<uint64_t>(dat, size, [&](uint64_t v) { push_memory(v); });
-			}
-
-			bool get_next(ArgTypeInfo::OP &type, uint64_t &data) {
-				if (list.empty()) {
+			bool do_next(const std::function<void(ArgTypeInfo::OP, unsigned int num)> &f) {
+				Data data;
+				bool v = datalist.get_next(data);
+				if (v == false)
 					return false;
-				}
-				else {
-					auto &e = list.front();
-					type = e.type;
-					data = e.data;
-					list.pop_front();
-					return true;
-				}
+				f(data.op, data.num);
+				return true;
 			}
 
 			unsigned int get_int_count() const {
-				return _int_count;
+				return counter.int_count;
 			}
 			unsigned int get_float_count() const {
-				return _float_count;
+				return counter.float_count;
 			}
 			unsigned int get_memory_count() const {
-				return _memory_count;
+				return counter.memory_count;
+			}
+			unsigned int num() const {
+				return _num;
 			}
 
 			const ArgTypeInfo::RetData& get_retdata() const {
@@ -572,12 +586,106 @@ namespace JitFFI
 			}
 
 		private:
-			DataList list;
-			unsigned int _int_count = 0;
-			unsigned int _float_count = 0;
-			unsigned int _memory_count = 0;
+			ArgOPCounter counter;
+			const unsigned int _num;
+			StackList<Data> datalist;
 			ArgTypeInfo::RetData retdata;
 		};
+
+		class ArgumentList
+		{
+			struct Data {
+				ArgTypeInfo::OP op;
+				uint64_t data;
+			};
+
+		public:
+			ArgumentList() = default;
+
+			void push(ArgTypeInfo::OP op, uint64_t v) {
+				counter.add(op);
+				datalist.add({ op, v });
+			}
+
+			void push_memory(uint64_t v) {
+				counter.add(ArgTypeInfo::op_memory);
+				datalist.add({ ArgTypeInfo::op_memory, v });
+			}
+
+			void push_memory(const void *dat, size_t size) {
+				JitFFI::push_memory<uint64_t>(dat, size, [&](uint64_t v) { push_memory(v); });
+			}
+
+			bool get_next(ArgTypeInfo::OP &op, uint64_t &data) {
+				Data d;
+				bool v = datalist.get_next(d);
+				op = d.op;
+				data = d.data;
+				return v;
+			}
+
+			unsigned int get_int_count() const {
+				return counter.int_count;
+			}
+			unsigned int get_float_count() const {
+				return counter.float_count;
+			}
+			unsigned int get_memory_count() const {
+				return counter.memory_count;
+			}
+
+			const ArgTypeInfo::RetData& get_retdata() const {
+				return retdata;
+			}
+			void set_retdata(const ArgTypeInfo::RetData &rd) {
+				retdata = rd;
+			}
+
+		private:
+			StackList<Data> datalist;
+			ArgOPCounter counter;
+			ArgTypeInfo::RetData retdata;
+			unsigned int count = 0;
+		};
+
+		//==============================
+		// * Get ArgOPList
+		//==============================
+
+		static ArgOPList create_argoplist(const ArgTypeInfo &ati) {
+			ArgOPList list(ati.num);
+			unsigned int id = 0;
+			//if (ati.retdata.type == AT_Memory) {
+			//	list.add(id, ArgTypeInfo::op_void);
+			//}
+			list.set_retdata(ati.retdata);
+
+			for (unsigned int i = 0; i != ati.num; i++, id++) {
+				auto &type = ati.typelist[i];
+				switch (type.op) {
+				case ArgTypeInfo::op_int:
+					list.add(id, ArgTypeInfo::op_int);
+					break;
+				case ArgTypeInfo::op_float:
+					list.add(id, ArgTypeInfo::op_float);
+					break;
+				case ArgTypeInfo::op_memory:
+					list.add_mem(id, type.size);
+					break;
+				case ArgTypeInfo::op_struct:
+					list.add_stu(id, type.getspd(), type.size);
+					break;
+				default:
+					assert(false);
+					break;
+				}
+			}
+			return list;
+		}
+
+		//==============================
+		// * Get ArgumentList
+		//==============================
 
 		static void push_struct_data(ArgumentList &list, const void *t, const ArgTypeInfo::StructPassData &structinfo, unsigned int size) {
 			assert(size <= 16);
@@ -591,13 +699,13 @@ namespace JitFFI
 		static ArgumentList create_argumentlist(const ArgTypeInfo &ati, const ArgDataList &datalist) {
 			ArgumentList list;
 			auto iter = datalist.begin();
-			if (ati.restype.type == AT_Memory) {
+			if (ati.retdata.type == AT_Memory) {
 				list.push(ArgTypeInfo::op_void, 0);
 			}
-			list.set_retdata(ati.restype);
+			list.set_retdata(ati.retdata);
 
-			for (unsigned int i = 0; i != ati.size; ++i) {
-				auto &type = ati.typelist.get()[i];
+			for (unsigned int i = 0; i != ati.num; ++i) {
+				auto &type = ati.typelist[i];
 				switch (type.op) {
 				case ArgTypeInfo::op_int:
 					list.push(ArgTypeInfo::op_int, convert_uint64(*iter, type.size));
@@ -649,9 +757,56 @@ namespace JitFFI
 					jfcc.push(data);
 					break;
 				default:
+					printf("%d\n", type);
 					assert(false);
 				}
 			}
+		}
+
+		static void create_argument(JitFuncCallerCreater &jfcc, ArgOPList &list) {
+			ArgTypeInfo::OP type;
+			uint64_t data;
+
+			jfcc.init_addarg_count(list.get_int_count(), list.get_float_count(), list.get_memory_count());
+
+			/* TODO */ OpCode_x64::mov(jfcc.data(), rbx, rsi);
+
+			if (list.get_retdata().type == ArgTypeInfo::op_memory) {
+				jfcc.add_void();
+			}
+
+			OpCode_x64::add_rbx_uint32(jfcc.data(), (list.num() - 1) * 8);
+
+			bool is_first = true;
+			unsigned int rnum = 0;
+
+			while (list.do_next([&](ArgTypeInfo::OP op, unsigned int num) {
+				printf("<%d %d>\n", op, num);
+				if (rnum == 0) {
+					rnum = num + 1;
+					OpCode_x64::mov(jfcc.data(), rax, prbx);
+					OpCode_x64::sub_rbx_byte(jfcc.data(), 8);
+					OpCode_x64::add_rax_uint32(jfcc.data(), num * 8);
+				}
+				switch (op) {
+				case ArgTypeInfo::op_int:
+					jfcc.add_int_prax();
+					break;
+				case ArgTypeInfo::op_float:
+					jfcc.add_double_prax();
+					break;
+				case ArgTypeInfo::op_memory:
+					jfcc.push_prax();
+					break;
+				default:
+					printf("%d\n", type);
+					assert(false);
+				}
+				if (rnum != 0) {
+					rnum--;
+					OpCode_x64::sub_rax_byte(jfcc.data(), 8);
+				}
+			}));
 		}
 
 		static void create_return_base(JitFuncCallerCreater &jfcc, ArgType type, unsigned int size, unsigned int rec[]);
@@ -675,8 +830,8 @@ namespace JitFFI
 		}
 
 		static void create_return_copy(JitFuncCallerCreater &jfcc, unsigned int size) {
-			OpCode_x64::mov_rsi_rsp(jfcc.data());
-			OpCode_x64::mov_rdi_rbx(jfcc.data());
+			OpCode_x64::mov(jfcc.data(), rsi, rsp);
+			OpCode_x64::mov(jfcc.data(), rdi, rbx);
 			OpCode_x64::mov_rcx_uint32(jfcc.data(), size);
 			OpCode_x64::movsb_prdi_prsi_rep(jfcc.data());
 		}
@@ -761,12 +916,15 @@ namespace JitFFI
 
 		static void create_function_caller_head(JitFuncCallerCreater &jfcc) {
 			OpCode_x64::push_rbx(jfcc.data());
-			OpCode_x64::sub_rsp_byte(jfcc.data(), 0x8);
+			OpCode_x64::push_r12(jfcc.data());
+
+			//OpCode_x64::sub_rsp_byte(jfcc.data(), 0x8);
 			jfcc.sub_rsp();
 		}
 		static void create_function_caller_foot(JitFuncCallerCreater &jfcc) {
 			jfcc.add_rsp();
-			OpCode_x64::add_rsp_byte(jfcc.data(), 0x8);
+			//OpCode_x64::add_rsp_byte(jfcc.data(), 0x8);
+			OpCode_x64::pop_r12(jfcc.data());
 			OpCode_x64::pop_rbx(jfcc.data());
 			jfcc.ret();
 		}
@@ -776,15 +934,34 @@ namespace JitFFI
 			JitFuncCallerCreaterPlatform jfcc(jfc, func);
 			create_function_caller_head(jfcc);
 
-			OpCode_x64::mov_rbx_rdi(jfc);
+			OpCode_x64::mov(jfc, rbx, rdi);
 			create_argument(jfcc, list);
 
 			jfcc.call();
 
-			OpCode_x64::mov_rdi_rbx(jfc);
 			create_return(jfcc, list.get_retdata());
 
 			create_function_caller_foot(jfcc);
+		}
+
+		void create_function_caller(JitFuncCreater &jfc, void *func, const ArgumentInfo &argumentinfo)
+		{
+			ArgOPList aol = create_argoplist(get_argtypeinfo(argumentinfo));
+
+
+			JitFuncCallerCreaterPlatform jfcc(jfc, func);
+			create_function_caller_head(jfcc);
+
+			OpCode_x64::mov(jfc, r12, rdi);
+			create_argument(jfcc, aol);
+
+			jfcc.call();
+
+			OpCode_x64::mov(jfc, rbx, r12);
+			create_return(jfcc, aol.get_retdata());
+
+			create_function_caller_foot(jfcc);
+
 		}
 
 		void create_function_caller(JitFuncCreater &jfc, void *func, const ArgumentInfo &argumentinfo, const ArgDataList &adlist)

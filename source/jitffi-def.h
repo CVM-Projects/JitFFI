@@ -2,6 +2,7 @@
 #include "jitffi.h"
 #include <algorithm>
 #include <functional>
+#include <stack>
 
 namespace JitFFI
 {
@@ -72,11 +73,54 @@ namespace JitFFI
 
 namespace JitFFI
 {
+	template <typename T>
+	class UPtrValVector
+	{
+	public:
+		explicit UPtrValVector(size_t num)
+			: data((T*)std::malloc(num * sizeof(T))) {}
+
+		T* get() const {
+			return data.get();
+		}
+		T& operator[](size_t id) const {
+			return get()[id];
+		}
+
+	private:
+		struct Deleter { void operator()(T *p) { std::free(p); } };
+		std::unique_ptr<T, Deleter> data;
+	};
+
+	template <typename T>
+	class StackList
+	{
+	public:
+		void add(const T &v) {
+			data.push(v);
+		}
+
+		bool get_next(T &v) {
+			if (data.empty()) {
+				return false;
+			}
+			else {
+				v = data.top();
+				data.pop();
+				return true;
+			}
+		}
+
+	private:
+		std::stack<T, std::list<T>> data;
+	};
+
+
 	template <typename ArgTypeInfo, typename ArgPassData, typename ArgRetData, ArgPassData(pass_f)(const ArgTypeUnit &), ArgRetData(ret_f)(const ArgTypeUnit &)>
 	static ArgTypeInfo create_argtypeinfo(const ArgTypeUnit &restype, const ArgTypeList &atlist) {
 		assert(atlist.size() < UINT32_MAX);
 		ArgTypeInfo ati(static_cast<uint32_t>(atlist.size()));
-		ati.restype = ret_f(restype);
+		ati.retdata = ret_f(restype);
 		unsigned int i = 0;
 		for (auto &type : atlist) {
 			ati.typelist.get()[i++] = pass_f(*type);

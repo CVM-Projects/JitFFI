@@ -111,6 +111,14 @@ void Call_X(JitFuncCreater &jfc, _FTy &func, const ArgTypeUnit &atu, const _Ty &
 	CurrABI::create_function_caller(jfc, &func, info, dl);
 }
 
+template <typename _FTy>
+void Call_Y(JitFuncCreater &jfc, _FTy &func, const ArgTypeUnit &atu)
+{
+	ArgTypeList tl{ &atu, &atu };
+	ArgumentInfo info = CurrABI::get_argumentinfo(atu, tl);
+	CurrABI::create_function_caller(jfc, &func, info);
+}
+
 void Call_1(JitFuncCreater &jfc)
 {
 	type1 t1{ 1, 2 };
@@ -155,10 +163,34 @@ void Call_5(JitFuncCreater &jfc)
 	Call_X(jfc, print_struct5, atu_type5, t1, t2);
 }
 
-void Call_NNN(JitFuncCreater &jfc)
+void Call_5y()
 {
-	OpCode_x64::mov_st0_prsp(jfc);
-	OpCode_x64::mov_prsp_st0(jfc);
+	auto f = Compile<void(void *, void **)>([](JitFuncCreater &jfc) { Call_Y(jfc, print_struct5, atu_type5); });
+
+	type5 t1;
+	t1.d0 = 1;
+	t1.d1 = 2;
+	type5 t2;
+	t2.d0 = 3;
+	t2.d1 = 4;
+
+	void *dl[] = { &t1, &t2 };
+
+
+	uint8_t *np = (uint8_t*)calloc(sizeof(type5) + 5, 1);
+	np[sizeof(type5) + 0] = 0x11;
+	np[sizeof(type5) + 1] = 0x22;
+	np[sizeof(type5) + 2] = 0x33;
+	np[sizeof(type5) + 3] = 0x44;
+	np[sizeof(type5) + 4] = 0x55;
+
+	f(np, dl);
+	printf("<0x%016llX>\n", *(uint64_t*)np);
+	print_struct5(*(type5*)np, *(type5*)np);
+	for (unsigned int i = 0; i != sizeof(type5) + 5; ++i) {
+		printf("%02X ", np[i]);
+	}
+	printf("\n");
 }
 
 #include "../source/jitffi-def.h"
@@ -201,6 +233,10 @@ int main()
 		printf("%02X ", np[i]);
 	}
 	printf("\n");
+
+	printf("===5y===\n");
+	Call_5y();
+
 
 	//Call(Call_NNN);
 
