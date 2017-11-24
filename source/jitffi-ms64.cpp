@@ -121,9 +121,9 @@ namespace JitFFI
 		void JitFuncCallerCreaterPlatform::call() {
 			assert(have_init);
 			assert(func);
-			OpCode_x64::sub_rsp_byte(jfc, 0x20);
+			OpCode_x64::sub_rx_byte(jfc, OpCode_x64::rsp, 0x20);
 			OpCode_x64::call_func(jfc, func);
-			OpCode_x64::add_rsp_byte(jfc, 0x20);
+			OpCode_x64::add_rx_byte(jfc, OpCode_x64::rsp, 0x20);
 		}
 	}
 }

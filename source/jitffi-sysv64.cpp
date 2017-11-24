@@ -765,7 +765,6 @@ namespace JitFFI
 
 		static void create_argument(JitFuncCallerCreater &jfcc, ArgOPList &list) {
 			ArgTypeInfo::OP type;
-			uint64_t data;
 
 			jfcc.init_addarg_count(list.get_int_count(), list.get_float_count(), list.get_memory_count());
 
@@ -773,7 +772,7 @@ namespace JitFFI
 				jfcc.add_void();
 			}
 
-			OpCode_x64::add_rbx_uint32(jfcc.data(), (list.num() - 1) * 8);
+			OpCode_x64::add_rx_u32(jfcc.data(), OpCode_x64::rbx, (list.num() - 1) * 8);
 
 			unsigned int rnum = 0;
 
@@ -781,8 +780,8 @@ namespace JitFFI
 				if (rnum == 0) {
 					rnum = num + 1;
 					OpCode_x64::mov(jfcc.data(), rax, prbx);
-					OpCode_x64::sub_rbx_byte(jfcc.data(), 8);
-					OpCode_x64::add_rax_uint32(jfcc.data(), num * 8);
+					OpCode_x64::sub_rx_byte(jfcc.data(), OpCode_x64::rbx, 8);
+					OpCode_x64::add_rx_u32(jfcc.data(), OpCode_x64::rax, num * 8);
 				}
 				switch (op) {
 				case ArgTypeInfo::op_int:
@@ -800,7 +799,7 @@ namespace JitFFI
 				}
 				if (rnum != 0) {
 					rnum--;
-					OpCode_x64::sub_rax_byte(jfcc.data(), 8);
+					OpCode_x64::sub_rx_byte(jfcc.data(), OpCode_x64::rax, 8);
 				}
 			}));
 		}
@@ -815,7 +814,7 @@ namespace JitFFI
 						create_return_base(jfcc, st.get(0), std::min<unsigned>(retdata.size, 8), rec);
 					}
 					if (retdata.size > 8) {
-						OpCode_x64::add_rbx_byte(jfcc.data(), 8);
+						OpCode_x64::add_rx_byte(jfcc.data(), OpCode_x64::rbx, 8);
 						create_return_base(jfcc, st.get(1), retdata.size - 8, rec);
 					}
 				}
@@ -888,7 +887,7 @@ namespace JitFFI
 			case AT_ComplexX87:
 				assert(false); // TODO
 				OpCode_x64::mov_prbx_st0(jfcc.data());
-				OpCode_x64::add_rbx_byte(jfcc.data(), 8);
+				OpCode_x64::add_rx_byte(jfcc.data(), OpCode_x64::rbx, 8);
 				OpCode_x64::mov_prbx_st0(jfcc.data());
 				break;
 			default:
@@ -914,12 +913,12 @@ namespace JitFFI
 			OpCode_x64::push(jfcc.data(), rbx);
 			OpCode_x64::push(jfcc.data(), r12);
 
-			//OpCode_x64::sub_rsp_byte(jfcc.data(), 0x8);
+			//OpCode_x64::sub_rx_byte(jfcc.data(), OpCode_x64::rsp, 0x8);
 			jfcc.sub_rsp();
 		}
 		static void create_function_caller_foot(JitFuncCallerCreater &jfcc) {
 			jfcc.add_rsp();
-			//OpCode_x64::add_rsp_byte(jfcc.data(), 0x8);
+			//OpCode_x64::add_rx_byte(jfcc.data(), OpCode_x64::rsp, 0x8);
 			OpCode_x64::pop(jfcc.data(), r12);
 			OpCode_x64::pop(jfcc.data(), rbx);
 			jfcc.ret();

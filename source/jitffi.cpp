@@ -81,18 +81,18 @@ namespace JitFFI
 	}
 
 	void JitFuncCallerCreater::sub_rsp() {
-		OpCode_x64::sub_rsp_byte(jfc, 0x8);
+		OpCode_x64::sub_rx_byte(jfc, OpCode_x64::rsp, 0x8);
 		sub_rsp_ptr = jfc.end() - 1;
 	}
 
 	void JitFuncCallerCreater::add_rsp() {
-		OpCode_x64::add_rsp_uint32(jfc, get_add_offset());  // !NOTICE! this num may > 1 byte.
+		OpCode_x64::add_rx_u32(jfc, OpCode_x64::rsp, get_add_offset());  // !NOTICE! this num may > 1 byte.
 		assert(sub_rsp_ptr);
 		*sub_rsp_ptr += get_offset();
 	}
 
 	void JitFuncCallerCreater::push(uint64_t dat) {
-		OpCode_x64::mov_rax_uint64(jfc, dat);
+		OpCode_x64::mov_rxq_u64(jfc, OpCode_x64::rax, dat);
 		OpCode_x64::push(jfc, OpCode_x64::rax);
 		push_count += 1;
 	}
@@ -103,10 +103,10 @@ namespace JitFFI
 	}
 
 	void JitFuncCallerCreater::sub_rbx(uint32_t dat) {
-		OpCode_x64::sub_rbx_uint32(jfc, dat);
+		OpCode_x64::sub_rx_u32(jfc, OpCode_x64::rbx, dat);
 	}
 	void JitFuncCallerCreater::add_rbx(uint32_t dat) {
-		OpCode_x64::add_rbx_uint32(jfc, dat);
+		OpCode_x64::add_rx_u32(jfc, OpCode_x64::rbx, dat);
 	}
 	void JitFuncCallerCreater::mov_rbx_rsp() {
 		OpCode_x64::mov(jfc, OpCode_x64::rbx, OpCode_x64::rsp);

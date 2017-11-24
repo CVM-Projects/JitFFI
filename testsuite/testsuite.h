@@ -52,13 +52,13 @@ inline void run_objdump(JitFuncCreater &jfc)
 }
 
 template <typename T = void>
-inline auto Compile(CallerProcess *handler, bool use_new_memory = false)
+inline auto Compile(CallerProcess *handler, bool use_new_memory = false, size_t size = 0x1000)
 {
 	static JitFuncPool global_pool(0x1000, JitFuncPool::ReadWrite);
 	JitFuncPool *pool;
 
 	if (use_new_memory) {
-		pool = new JitFuncPool(0x1000, JitFuncPool::ReadWrite);
+		pool = new JitFuncPool(size, JitFuncPool::ReadWrite);
 	}
 	else {
 		pool = &global_pool;
