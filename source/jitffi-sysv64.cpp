@@ -769,19 +769,15 @@ namespace JitFFI
 
 			jfcc.init_addarg_count(list.get_int_count(), list.get_float_count(), list.get_memory_count());
 
-			/* TODO */ OpCode_x64::mov(jfcc.data(), rbx, rsi);
-
 			if (list.get_retdata().type == ArgTypeInfo::op_memory) {
 				jfcc.add_void();
 			}
 
 			OpCode_x64::add_rbx_uint32(jfcc.data(), (list.num() - 1) * 8);
 
-			bool is_first = true;
 			unsigned int rnum = 0;
 
 			while (list.do_next([&](ArgTypeInfo::OP op, unsigned int num) {
-				printf("<%d %d>\n", op, num);
 				if (rnum == 0) {
 					rnum = num + 1;
 					OpCode_x64::mov(jfcc.data(), rax, prbx);
@@ -846,9 +842,9 @@ namespace JitFFI
 						OpCode_x64::mov_prbx_rax(jfcc.data());
 					}
 					else {
-						OpCode_x64::push_rax(jfcc.data());
+						OpCode_x64::push(jfcc.data(), rax);
 						create_return_copy(jfcc, size);
-						OpCode_x64::pop_rax(jfcc.data());
+						OpCode_x64::pop(jfcc.data(), rax);
 					}
 					rec[0] = 1;
 				}
@@ -857,9 +853,9 @@ namespace JitFFI
 						OpCode_x64::mov_prbx_rdx(jfcc.data());
 					}
 					else {
-						OpCode_x64::push_rdx(jfcc.data());
+						OpCode_x64::push(jfcc.data(), rdx);
 						create_return_copy(jfcc, size);
-						OpCode_x64::pop_rdx(jfcc.data());
+						OpCode_x64::pop(jfcc.data(), rdx);
 					}
 				}
 				break;
@@ -915,8 +911,8 @@ namespace JitFFI
 		}
 
 		static void create_function_caller_head(JitFuncCallerCreater &jfcc) {
-			OpCode_x64::push_rbx(jfcc.data());
-			OpCode_x64::push_r12(jfcc.data());
+			OpCode_x64::push(jfcc.data(), rbx);
+			OpCode_x64::push(jfcc.data(), r12);
 
 			//OpCode_x64::sub_rsp_byte(jfcc.data(), 0x8);
 			jfcc.sub_rsp();
@@ -924,27 +920,16 @@ namespace JitFFI
 		static void create_function_caller_foot(JitFuncCallerCreater &jfcc) {
 			jfcc.add_rsp();
 			//OpCode_x64::add_rsp_byte(jfcc.data(), 0x8);
-			OpCode_x64::pop_r12(jfcc.data());
-			OpCode_x64::pop_rbx(jfcc.data());
+			OpCode_x64::pop(jfcc.data(), r12);
+			OpCode_x64::pop(jfcc.data(), rbx);
 			jfcc.ret();
 		}
 
-		static void create_function_caller(JitFuncCreater &jfc, ArgumentList &list, void *func)
-		{
-			JitFuncCallerCreaterPlatform jfcc(jfc, func);
-			create_function_caller_head(jfcc);
+		static void create_function_caller(JitFuncCreater &jfc, ArgumentList &list, void *func) {
 
-			OpCode_x64::mov(jfc, rbx, rdi);
-			create_argument(jfcc, list);
-
-			jfcc.call();
-
-			create_return(jfcc, list.get_retdata());
-
-			create_function_caller_foot(jfcc);
 		}
 
-		void create_function_caller(JitFuncCreater &jfc, void *func, const ArgumentInfo &argumentinfo)
+		void create_function_caller(JitFuncCreater &jfc, const ArgumentInfo &argumentinfo, void *func)
 		{
 			ArgOPList aol = create_argoplist(get_argtypeinfo(argumentinfo));
 
@@ -953,6 +938,7 @@ namespace JitFFI
 			create_function_caller_head(jfcc);
 
 			OpCode_x64::mov(jfc, r12, rdi);
+			OpCode_x64::mov(jfc, rbx, rsi);
 			create_argument(jfcc, aol);
 
 			jfcc.call();
@@ -964,7 +950,7 @@ namespace JitFFI
 
 		}
 
-		void create_function_caller(JitFuncCreater &jfc, void *func, const ArgumentInfo &argumentinfo, const ArgDataList &adlist)
+		void create_function_caller(JitFuncCreater &jfc, const ArgumentInfo &argumentinfo, void *func, const ArgDataList &adlist)
 		{
 			assert(adlist.size() < UINT32_MAX);
 
@@ -976,7 +962,17 @@ namespace JitFFI
 			//}
 			//printf(">\n");
 
-			create_function_caller(jfc, list, func);
+			JitFuncCallerCreaterPlatform jfcc(jfc, func);
+			create_function_caller_head(jfcc);
+
+			OpCode_x64::mov(jfc, rbx, rdi);
+			create_argument(jfcc, list);
+
+			jfcc.call();
+
+			create_return(jfcc, list.get_retdata());
+
+			create_function_caller_foot(jfcc);
 		}
 	}
 }

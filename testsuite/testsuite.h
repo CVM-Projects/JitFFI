@@ -51,7 +51,7 @@ inline void run_objdump(JitFuncCreater &jfc)
 	printf("\n");
 }
 
-template <typename T>
+template <typename T = void>
 inline auto Compile(CallerProcess *handler, bool use_new_memory = false)
 {
 	static JitFuncPool global_pool(0x1000, JitFuncPool::ReadWrite);

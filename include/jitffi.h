@@ -13,24 +13,24 @@
 namespace JitFFI
 {
 	// get_argumentinfo       = (ArgTypeUnit ArgTypeList)              -> ArgumentInfo
-	// create_function_caller = (Func ArgumentInfo)                    -> function<void (void*, ArgDataList)>
-	// create_function_caller = (Func ArgumentInfo ArgDataList)        -> function<void (void*)>
-	// create_function_caller = (Func ArgumentInfo ArgDataListPartial) -> function<void (void*, ArgDataListPartial)>
+	// create_function_caller = (ArgumentInfo Func)                    -> function<void (void*, ArgDataList)>
+	// create_function_caller = (ArgumentInfo Func ArgDataList)        -> function<void (void*)>
+	// create_function_caller = (ArgumentInfo Func ArgDataListPartial) -> function<void (void*, ArgDataListPartial)>
 	// create_function_caller = (ArgumentInfo)                         -> function<void (Func*, void*, ArgDataList)>
 	// create_function_caller = (ArgumentInfo ArgDataList)             -> function<void (Func*, void*)>
 	// create_function_caller = (ArgumentInfo ArgDataListPartial)      -> function<void (Func*, void*, ArgDataListPartial)>
 
 #define _DECLARE_create_function_caller \
 	ArgumentInfo get_argumentinfo(const ArgTypeUnit &restype, const ArgTypeList &atlist); \
-	void create_function_caller(JitFuncCreater &jfc, void *func, const ArgumentInfo &argumentinfo, const ArgDataList &adlist); \
-	void create_function_caller(JitFuncCreater &jfc, void *func, const ArgumentInfo &argumentinfo); \
+	void create_function_caller(JitFuncCreater &jfc, const ArgumentInfo &argumentinfo, void *func, const ArgDataList &adlist); \
+	void create_function_caller(JitFuncCreater &jfc, const ArgumentInfo &argumentinfo, void *func); \
 	template <typename _FTy> \
-	void create_function_caller(JitFuncCreater &jfc, _FTy *func, const ArgumentInfo &argumentinfo, const ArgDataList &adlist) { \
-		create_function_caller(jfc, (void*)func, argumentinfo, adlist); \
+	void create_function_caller(JitFuncCreater &jfc, const ArgumentInfo &argumentinfo, _FTy *func, const ArgDataList &adlist) { \
+		create_function_caller(jfc, argumentinfo, (void*)func, adlist); \
 	} \
 	template <typename _FTy> \
-	void create_function_caller(JitFuncCreater &jfc, _FTy *func, const ArgumentInfo &argumentinfo) { \
-		create_function_caller(jfc, (void*)func, argumentinfo); \
+	void create_function_caller(JitFuncCreater &jfc, const ArgumentInfo &argumentinfo, _FTy *func) { \
+		create_function_caller(jfc, argumentinfo, (void*)func); \
 	}
 
 	namespace SysV64 { _DECLARE_create_function_caller }

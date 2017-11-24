@@ -266,7 +266,7 @@ void Call_X(JitFuncCreater &jfc, _FTy &func, const ArgTypeUnit &atu, const _Ty &
 	ArgTypeList tl{ &atu };
 	ArgDataList dl{ &t };
 	ArgumentInfo info = CurrABI::get_argumentinfo(atu_void, tl);
-	CurrABI::create_function_caller(jfc, &func, info, dl);
+	CurrABI::create_function_caller(jfc, info, &func, dl);
 }
 
 void Call_1(JitFuncCreater &jfc)

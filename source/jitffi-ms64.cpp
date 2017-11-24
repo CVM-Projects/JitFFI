@@ -387,18 +387,18 @@ namespace JitFFI
 		}
 
 		static void create_function_caller_head(JitFuncCallerCreater &jfcc) {
-			OpCode_x64::push_rbx(jfcc.data());
-			OpCode_x64::push_r12(jfcc.data());
+			OpCode_x64::push(jfcc.data(), rbx);
+			OpCode_x64::push(jfcc.data(), r12);
 			jfcc.sub_rsp();
 		}
 		static void create_function_caller_foot(JitFuncCallerCreater &jfcc) {
 			jfcc.add_rsp();
-			OpCode_x64::pop_r12(jfcc.data());
-			OpCode_x64::pop_rbx(jfcc.data());
+			OpCode_x64::pop(jfcc.data(), r12);
+			OpCode_x64::pop(jfcc.data(), rbx);
 			jfcc.ret();
 		}
 
-		static void create_function_caller(JitFuncCreater &jfc, void *func, ArgumentList &list)
+		static void create_function_caller(JitFuncCreater &jfc, ArgumentList &list, void *func)
 		{
 			JitFuncCallerCreaterPlatform jfcc(jfc, func);
 			create_function_caller_head(jfcc);
@@ -414,13 +414,13 @@ namespace JitFFI
 			create_function_caller_foot(jfcc);
 		}
 
-		void create_function_caller(JitFuncCreater &jfc, void *func, const ArgumentInfo &argumentinfo, const ArgDataList &adlist)
+		void create_function_caller(JitFuncCreater &jfc, const ArgumentInfo &argumentinfo, void *func, const ArgDataList &adlist)
 		{
 			assert(adlist.size() < UINT32_MAX);
 
 			ArgumentList list = create_argumentlist(get_argtypeinfo(argumentinfo), adlist);
 
-			create_function_caller(jfc, func, list);
+			create_function_caller(jfc, list, func);
 		}
 	}
 }

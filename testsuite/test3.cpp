@@ -108,7 +108,7 @@ void Call_X(JitFuncCreater &jfc, _FTy &func, const ArgTypeUnit &atu, const _Ty &
 	ArgTypeList tl{ &atu, &atu };
 	ArgDataList dl{ &t1, &t2 };
 	ArgumentInfo info = CurrABI::get_argumentinfo(atu, tl);
-	CurrABI::create_function_caller(jfc, &func, info, dl);
+	CurrABI::create_function_caller(jfc, info, &func, dl);
 }
 
 template <typename _FTy>
@@ -116,7 +116,7 @@ void Call_Y(JitFuncCreater &jfc, _FTy &func, const ArgTypeUnit &atu)
 {
 	ArgTypeList tl{ &atu, &atu };
 	ArgumentInfo info = CurrABI::get_argumentinfo(atu, tl);
-	CurrABI::create_function_caller(jfc, &func, info);
+	CurrABI::create_function_caller(jfc, info, &func);
 }
 
 void Call_1(JitFuncCreater &jfc)

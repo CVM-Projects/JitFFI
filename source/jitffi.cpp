@@ -93,12 +93,12 @@ namespace JitFFI
 
 	void JitFuncCallerCreater::push(uint64_t dat) {
 		OpCode_x64::mov_rax_uint64(jfc, dat);
-		OpCode_x64::push_rax(jfc);
+		OpCode_x64::push(jfc, OpCode_x64::rax);
 		push_count += 1;
 	}
 
 	void JitFuncCallerCreater::push_prax() {
-		OpCode_x64::push_prax(jfc);
+		OpCode_x64::push(jfc, OpCode_x64::prax);
 		push_count += 1;
 	}
 
