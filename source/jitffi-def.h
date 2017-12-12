@@ -1,8 +1,41 @@
 #pragma once
 #include "jitffi.h"
+#include "opcode.h"
 #include <algorithm>
 #include <functional>
 #include <stack>
+
+namespace JitFFI
+{
+	class JitFuncCallerCreaterX64
+	{
+		using byte = uint8_t;
+	public:
+		explicit JitFuncCallerCreaterX64(JitFuncCreater &jfc)
+			: data(jfc) {}
+
+		void sub_rsp();
+		void add_rsp();
+
+		void push(uint64_t);
+		void push_reg(OpCode_x64::Register);
+
+	public:
+		JitFuncCreater &data;
+
+	protected:
+		unsigned int push_count = 0;
+		byte* sub_rsp_ptr = nullptr;
+		bool have_init = false;
+
+		byte get_sub_offset();
+		auto get_add_offset();
+
+		void call_func(void *func);
+
+		using OpHandler = unsigned int(unsigned int);
+	};
+}
 
 namespace JitFFI
 {
@@ -78,18 +111,26 @@ namespace JitFFI
 	{
 	public:
 		explicit UPtrValVector(size_t num)
-			: data((T*)std::malloc(num * sizeof(T))) {}
+			: data((T*)std::malloc(num * sizeof(T)))
+#ifndef NDEBUG
+			, num(num)
+#endif
+		{}
 
 		T* get() const {
 			return data.get();
 		}
 		T& operator[](size_t id) const {
+			assert(id < num);
 			return get()[id];
 		}
 
 	private:
 		struct Deleter { void operator()(T *p) { std::free(p); } };
 		std::unique_ptr<T, Deleter> data;
+#ifndef NDEBUG
+		size_t num;
+#endif
 	};
 
 	template <typename T>

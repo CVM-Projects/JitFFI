@@ -16,7 +16,7 @@ if ((args.compile or args.compile_shared) and args.test):
 
 path = '.'
 
-source_data = [ 'jitffi', 'jitffi-sysv64', 'jitffi-ms64' ]
+source_data = [ 'jitfunc', 'jitffi-def', 'jitffi-sysv64', 'jitffi-ms64' ]
 
 sources = ''
 for name in source_data:

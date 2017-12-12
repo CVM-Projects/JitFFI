@@ -54,27 +54,82 @@ namespace JitFFI
 	{
 		using namespace OpCode_x64;
 
-		class JitFuncCallerCreaterPlatform : public JitFuncCallerCreater
+		inline unsigned int add_int(JitFuncCreater &jfc, uint64_t dat, unsigned int count) {
+			switch (count) {
+			case 0:  movq_u64(jfc, rcx, dat); return 0;
+			case 1:  movq_u64(jfc, rdx, dat); return 0;
+			case 2:  movq_u64(jfc, r8, dat); return 0;
+			case 3:  movq_u64(jfc, r9, dat); return 0;
+			default:
+				movq_u64(jfc, rax, dat);
+				push(jfc, rax);
+				return 1;
+			}
+		}
+		inline unsigned int add_int_uint32(JitFuncCreater &jfc, uint32_t dat, unsigned int count) {
+			switch (count) {
+			case 0:  movd_u32(jfc, ecx, dat); return 0;
+			case 1:  movd_u32(jfc, edx, dat); return 0;
+			case 2:  movd_u32(jfc, r8d, dat); return 0;
+			case 3:  movd_u32(jfc, r9d, dat); return 0;
+			default: push_u32(jfc, dat); return 1;
+			}
+		}
+		inline unsigned int add_int_reg(JitFuncCreater &jfc, Register r, unsigned int count) {
+			switch (count) {
+			case 0:  mov(jfc, rcx, r); return 0;
+			case 1:  mov(jfc, rdx, r); return 0;
+			case 2:  mov(jfc, r8, r); return 0;
+			case 3:  mov(jfc, r9, r); return 0;
+			default: push(jfc, r); return 1;
+			}
+		}
+
+		// add_double_n: (n : 0 ~ 3)
+		//     mov rax, dat    ; dat : convert(value)
+		//     mov xmm_n, rax
+
+		inline unsigned int add_double_reg(JitFuncCreater &jfc, Register r, unsigned int count) {
+			auto f = is_prx(r) ? movsd : mov;
+			switch (count) {
+			case 0:  f(jfc, xmm0, r); return 0;
+			case 1:  f(jfc, xmm1, r); return 0;
+			case 2:  f(jfc, xmm2, r); return 0;
+			case 3:  f(jfc, xmm3, r); return 0;
+			default: push(jfc, r); return 1;
+			}
+		}
+		inline unsigned int add_double(JitFuncCreater &jfc, uint64_t dat, unsigned int count) {
+			movq_u64(jfc, rax, dat);
+			return add_double_reg(jfc, rax, count);
+		}
+	}
+
+	namespace MS64
+	{
+		using namespace OpCode_x64;
+
+		class JitFuncCallerCreater : public JitFuncCallerCreaterX64
 		{
 		public:
-			template <typename _FTy>
-			explicit JitFuncCallerCreaterPlatform(JitFuncCreater &jfc, _FTy *func = nullptr)
-				: JitFuncCallerCreater(jfc, func) {}
+			explicit JitFuncCallerCreater(JitFuncCreater &jfc)
+				: JitFuncCallerCreaterX64(jfc) {}
 
-			void init_addarg_count(unsigned int int_c, unsigned int dou_c, unsigned int mem_c = 0) {
-				argn = int_c + dou_c + mem_c;
+			void init_addarg_count(unsigned int argn) {
+				this->argn = argn;
+#ifndef NDEBUG
 				have_init = true;
+#endif
 			}
 
-			void add_int(uint64_t dat);
 			void add_void();
+			void add_int(uint64_t dat);
 			void add_int_uint32(uint32_t dat);
-			void add_int_rbx();
-			void add_int_prax();
+			void add_int_reg(Register r);
 			void add_double(uint64_t dat);
-			void add_double_prax();
+			void add_double_reg(Register r);
 
-			void call();
+			void call(void *func);
 
 		private:
 			void _add_int(const std::function<OpHandler> &handler);
@@ -84,46 +139,43 @@ namespace JitFFI
 			unsigned int add_count = 0;
 		};
 
-		void JitFuncCallerCreaterPlatform::add_int(uint64_t dat) {
-			return _add_int([&](unsigned int c) { return OpCode_win64::add_int(jfc, dat, c); });
+		void JitFuncCallerCreater::add_int(uint64_t dat) {
+			return _add_int([&](unsigned int c) { return MS64::add_int(data, dat, c); });
 		}
-		void JitFuncCallerCreaterPlatform::add_int_uint32(uint32_t dat) {
-			return _add_int([&](unsigned int c) { return OpCode_win64::add_int_uint32(jfc, dat, c); });
+		void JitFuncCallerCreater::add_int_uint32(uint32_t dat) {
+			return _add_int([&](unsigned int c) { return MS64::add_int_uint32(data, dat, c); });
 		}
-		void JitFuncCallerCreaterPlatform::add_int_rbx() {
-			return _add_int([&](unsigned int c) { return OpCode_win64::add_int_rbx(jfc, c); });
+		void JitFuncCallerCreater::add_int_reg(Register r) {
+			return _add_int([&](unsigned int c) { return MS64::add_int_reg(data, r, c); });
 		}
-		void JitFuncCallerCreaterPlatform::add_int_prax() {
-			return _add_int([&](unsigned int c) { return OpCode_win64::add_int_prax(jfc, c); });
+		void JitFuncCallerCreater::add_double(uint64_t dat) {
+			return _add_double([&](unsigned int c) { return MS64::add_double(data, dat, c); });
 		}
-		void JitFuncCallerCreaterPlatform::add_double(uint64_t dat) {
-			return _add_double([&](unsigned int c) { return OpCode_win64::add_double(jfc, dat, c); });
-		}
-		void JitFuncCallerCreaterPlatform::add_double_prax() {
-			return _add_double([&](unsigned int c) { return OpCode_win64::add_double_prax(jfc, c); });
+		void JitFuncCallerCreater::add_double_reg(Register r) {
+			return _add_double([&](unsigned int c) { return MS64::add_double_reg(data, r, c); });
 		}
 
-		void JitFuncCallerCreaterPlatform::add_void() {
+		void JitFuncCallerCreater::add_void() {
 			assert(argn - add_count >= 0);
 			++add_count;
 		}
-		void JitFuncCallerCreaterPlatform::_add_int(const std::function<OpHandler> &handler) {
+		void JitFuncCallerCreater::_add_int(const std::function<OpHandler> &handler) {
 			assert(argn - add_count >= 0);
 			++add_count;
 			push_count += handler(argn - add_count);
 		}
-		void JitFuncCallerCreaterPlatform::_add_double(const std::function<OpHandler> &handler) {
+		void JitFuncCallerCreater::_add_double(const std::function<OpHandler> &handler) {
 			assert(argn - add_count >= 0);
 			++add_count;
 			push_count += handler(argn - add_count);
 		}
 
-		void JitFuncCallerCreaterPlatform::call() {
+		void JitFuncCallerCreater::call(void *func) {
 			assert(have_init);
 			assert(func);
-			OpCode_x64::sub_rx_byte(jfc, OpCode_x64::rsp, 0x20);
-			OpCode_x64::call_func(jfc, func);
-			OpCode_x64::add_rx_byte(jfc, OpCode_x64::rsp, 0x20);
+			sub_rx_byte(data, rsp, 0x20);
+			call_func(func);
+			add_rx_byte(data, rsp, 0x20);
 		}
 	}
 }
@@ -198,16 +250,19 @@ namespace JitFFI
 		}
 
 		static ArgTypeInfo::Data get_argtypeinfo_ret_data(const ArgTypeUnit &atu) {
+			ArgTypeInfo::Data retdata;
 			if (atu.type == AT_Void)
-				return { ArgTypeInfo::op_void, 0 };
+				retdata = { ArgTypeInfo::op_void, 0 };
 			else
 				return get_argtypeinfo_pass_data(atu);
 			if (atu.type == AT_Struct && need_return_by_pointer(atu.size)) {
-				return { ArgTypeInfo::op_push_pointer, atu.size };
+				retdata = { ArgTypeInfo::op_push_pointer, atu.size };
 			}
 			else {
-				return { ArgTypeInfo::op_int, atu.size };
+				retdata = { ArgTypeInfo::op_int, atu.size };
 			}
+			assert(retdata.first == ArgTypeInfo::op_void || retdata.second != 0);
+			return retdata;
 		}
 	}
 
@@ -309,7 +364,6 @@ namespace JitFFI
 			if (ati.retdata.first == ArgTypeInfo::op_push_pointer) {
 				list.push(ArgTypeInfo::op_void, 0);
 			}
-			assert(ati.retdata.first == ArgTypeInfo::op_void || ati.retdata.second != 0);
 			list.set_retdata(ati.retdata);
 			for (unsigned int i = 0; i != ati.num; ++i) {
 				auto &type = ati.typelist[i];
@@ -327,17 +381,78 @@ namespace JitFFI
 		// * Create
 		//==============================
 
+		static void create_argumentlist_base(JitFuncCallerCreater &jfcc, const ArgTypeInfo::Data &type);
+
+		static void create_argument(JitFuncCallerCreater &jfcc, const ArgTypeInfo &ati) {
+			assert(ati.num < UINT32_MAX);
+			for (unsigned int i = 0; i != ati.num; ++i) {
+				auto &type = ati.typelist[i];
+				if (type.first == ArgTypeInfo::OP::op_push_pointer) {
+					mov_offset_u32(jfcc.data, rax, prbx, i * 8);
+					unsigned int offset = get_value_count(type.second, 8);
+					add_rx_u32(jfcc.data, rax, 8 * (offset - 1));
+					while (offset--) {
+						jfcc.push_reg(prax);
+						sub_rx_byte(jfcc.data, rax, 8);
+					}
+				}
+			}
+			mov(jfcc.data, rbp, rsp);
+			unsigned int num = ati.num;
+			if (ati.retdata.first == ArgTypeInfo::op_push_pointer) {
+				num++;
+			}
+			jfcc.init_addarg_count(num);
+			if (ati.num > 1)
+				add_rx_u32(jfcc.data, rbx, 8 * (ati.num - 1));
+			for (unsigned int i = ati.num - 1; i != unsigned(-1); --i) {
+				auto &type = ati.typelist[i];
+				create_argumentlist_base(jfcc, type);
+				sub_rx_byte(jfcc.data, rbx, 8);
+			}
+			if (ati.retdata.first == ArgTypeInfo::op_push_pointer) {
+				jfcc.add_void();
+			}
+		}
+		static void create_argumentlist_base(JitFuncCallerCreater &jfcc, const ArgTypeInfo::Data &type) {
+			switch (type.first) {
+			case ArgTypeInfo::op_int:
+				mov(jfcc.data, rax, prbx);
+				jfcc.add_int_reg(prax);
+				break;
+			case ArgTypeInfo::op_float:
+				mov(jfcc.data, rax, prbx);
+				jfcc.add_double_reg(prax);
+				break;
+			case ArgTypeInfo::op_push:
+				mov(jfcc.data, rax, prbx);
+				jfcc.push_reg(prax);
+				break;
+			case ArgTypeInfo::op_push_pointer: {
+				jfcc.data.push(0x90);
+				jfcc.add_int_reg(rbp);
+				unsigned int offset = get_value_count(type.second, 8);
+				add_rx_u32(jfcc.data, rbp, 8 * offset);
+				jfcc.data.push(0x90);
+				break;
+			}
+			default:
+				assert(false);
+				break;
+			}
+		}
+
 		static void create_argument(JitFuncCallerCreater &jfcc, ArgumentList &list) {
 			ArgTypeInfo::OP type;
 			uint64_t data;
 
-			jfcc.init_addarg_count(list.size(), 0, 0);
+			jfcc.init_addarg_count(list.size());
 
 			while (list.get_next_memory(data)) {
 				jfcc.push(data);
 			}
 
-			jfcc.mov_rbx_rsp();
+			mov(jfcc.data, rbp, rsp);
 
 			while (list.get_next(type, data)) {
 				switch (type) {
@@ -351,9 +466,9 @@ namespace JitFFI
 					jfcc.add_double(data);
 					break;
 				case ArgTypeInfo::op_push_pointer:
-					jfcc.add_int_rbx();
+					jfcc.add_int_reg(rbp);
 					assert(data * 8 < UINT32_MAX);
-					jfcc.add_rbx(static_cast<uint32_t>(data * 8));
+					add_rx_u32(jfcc.data, rbp, static_cast<uint32_t>(data * 8));
 					break;
 				default:
 					assert(false);
@@ -362,13 +477,23 @@ namespace JitFFI
 		}
 
 		static void create_return(JitFuncCallerCreater &jfcc, const ArgTypeInfo::Data &retdata) {
+			Register dst = prbx;
 			if (retdata.first != ArgTypeInfo::op_push_pointer && retdata.first != ArgTypeInfo::op_void) {
-				switch (retdata.second) {
-				case 8: OpCode_x64::mov_prbx_rax(jfcc.data()); break;
-				case 4: OpCode_x64::mov_prbx_eax(jfcc.data()); break;
-				case 2: OpCode_x64::mov_prbx_ax(jfcc.data());  break;
-				case 1: OpCode_x64::mov_prbx_al(jfcc.data());  break;
-				default: printf("%d\n", retdata.first); assert(false);
+				if (retdata.first == ArgTypeInfo::op_int) {
+					switch (retdata.second) {
+					case 8: mov(jfcc.data, dst, rax); break;
+					case 4: mov(jfcc.data, dst, eax); break;
+					case 2: mov(jfcc.data, dst, ax);  break;
+					case 1: mov(jfcc.data, dst, al);  break;
+					default: printf("%d\n", retdata.first); assert(false);
+					}
+				}
+				else if (retdata.first == ArgTypeInfo::op_float) {
+					switch (retdata.second) {
+					case 8: movsd(jfcc.data, dst, xmm0); break;
+					case 4: movss(jfcc.data, dst, xmm0); break;
+					default: printf("%d\n", retdata.first); assert(false);
+					}
 				}
 			}
 		}
@@ -387,29 +512,36 @@ namespace JitFFI
 		}
 
 		static void create_function_caller_head(JitFuncCallerCreater &jfcc) {
-			OpCode_x64::push(jfcc.data(), rbx);
-			OpCode_x64::push(jfcc.data(), r12);
+			push(jfcc.data, rbx);
+			push(jfcc.data, rbp);
+			push(jfcc.data, r12);
+			sub_rx_byte(jfcc.data, rsp, 0x8);
 			jfcc.sub_rsp();
 		}
 		static void create_function_caller_foot(JitFuncCallerCreater &jfcc) {
 			jfcc.add_rsp();
-			OpCode_x64::pop(jfcc.data(), r12);
-			OpCode_x64::pop(jfcc.data(), rbx);
-			jfcc.ret();
+			add_rx_byte(jfcc.data, rsp, 0x8);
+			pop(jfcc.data, r12);
+			pop(jfcc.data, rbp);
+			pop(jfcc.data, rbx);
+			ret(jfcc.data);
 		}
 
-		static void create_function_caller(JitFuncCreater &jfc, ArgumentList &list, void *func)
+		void create_function_caller(JitFuncCreater &jfc, const ArgumentInfo &argumentinfo, void *func)
 		{
-			JitFuncCallerCreaterPlatform jfcc(jfc, func);
+			const ArgTypeInfo &ati = get_argtypeinfo(argumentinfo);
+
+			JitFuncCallerCreater jfcc(jfc);
 			create_function_caller_head(jfcc);
 
-			OpCode_x64::mov(jfc, r12, rcx);
-			create_argument(jfcc, list);
+			mov(jfc, r12, rcx);
+			mov(jfc, rbx, rdx);
+			create_argument(jfcc, ati);
 
-			jfcc.call();
+			jfcc.call(func);
 
-			OpCode_x64::mov(jfc, rbx, r12);
-			create_return(jfcc, list.get_retdata());
+			mov(jfc, rbx, r12);
+			create_return(jfcc, ati.retdata);
 
 			create_function_caller_foot(jfcc);
 		}
@@ -420,7 +552,18 @@ namespace JitFFI
 
 			ArgumentList list = create_argumentlist(get_argtypeinfo(argumentinfo), adlist);
 
-			create_function_caller(jfc, list, func);
+			JitFuncCallerCreater jfcc(jfc);
+			create_function_caller_head(jfcc);
+
+			mov(jfc, r12, rcx);
+			create_argument(jfcc, list);
+
+			jfcc.call(func);
+
+			mov(jfc, rbx, r12);
+			create_return(jfcc, list.get_retdata());
+
+			create_function_caller_foot(jfcc);
 		}
 	}
 }

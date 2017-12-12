@@ -193,6 +193,42 @@ void Call_5y()
 	printf("\n");
 }
 
+double f6(double x1)
+{
+	printf("%lf\n", x1);
+	return x1;
+}
+
+void Call_6()
+{
+	auto f = Compile<void(void *)>([](JitFuncCreater &jfc) {
+		double v = 3.14;
+
+		ArgumentInfo info = CurrABI::get_argumentinfo(atu_double, { &atu_double });
+		CurrABI::create_function_caller(jfc, info, &f6, { &v });
+	});
+
+	double r = 0.5;
+
+	f(&r);
+
+	printf("%lf\n", r);
+}
+
+void Call_6y()
+{
+
+	auto f = Compile<void(void *, void **)>([](JitFuncCreater &jfc) {
+		ArgumentInfo info = CurrABI::get_argumentinfo(atu_double, { &atu_double });
+		CurrABI::create_function_caller(jfc, info, &f6);
+	});
+
+	double npL[3] = { 3.14, 0.0, 1.57 };
+	void* dl[] = { npL + 0 };
+	f(npL + 1, dl);
+	printf("%lf\n", npL[1]);
+}
+
 #include "../source/jitffi-def.h"
 
 int main()
@@ -236,6 +272,12 @@ int main()
 
 	printf("===5y===\n");
 	Call_5y();
+
+	printf("===6===\n");
+	Call_6();
+
+	printf("===6y===\n");
+	Call_6y();
 
 
 	//Call(Call_NNN);

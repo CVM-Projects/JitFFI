@@ -71,57 +71,5 @@ namespace JitFFI
 		JitFunc &data;
 		size_t count = 0;
 	};
-
-	class JitFuncCallerCreater
-	{
-		using byte = uint8_t;
-	public:
-		template <typename _FTy>
-		explicit JitFuncCallerCreater(JitFuncCreater &jfc, _FTy *func = nullptr)
-			: jfc(jfc), func(reinterpret_cast<void*>(func)) {}
-
-		virtual ~JitFuncCallerCreater() = default;
-
-		void sub_rsp();
-		void add_rsp();
-
-		template <typename _FTy> void init_func(_FTy *fp) { func = fp; }
-		virtual void init_addarg_count(unsigned int int_c, unsigned int dou_c, unsigned int mem_c = 0) = 0;
-
-		virtual void add_void() = 0;
-		virtual void add_int(uint64_t dat) = 0;
-		virtual void add_int_uint32(uint32_t dat) = 0;
-		virtual void add_int_rbx() = 0;
-		virtual void add_int_prax() = 0;
-		virtual void add_double(uint64_t dat) = 0;
-		virtual void add_double_prax() = 0;
-
-		void push(uint64_t);
-		void push_prax();
-
-		void sub_rbx(uint32_t dat);
-		void add_rbx(uint32_t dat);
-		void mov_rbx_rsp();
-
-		virtual void call() = 0;
-		void ret();
-
-		JitFuncCreater& data() {
-			return jfc;
-		}
-
-	protected:
-		JitFuncCreater &jfc;
-		void* func;
-		unsigned int push_count = 0;
-		bool have_init = false;
-		byte* sub_rsp_ptr = nullptr;
-
-		byte get_offset();
-		byte get_sub_offset();
-		auto get_add_offset();
-
-		using OpHandler = unsigned int(unsigned int);
-	};
 }
 #endif

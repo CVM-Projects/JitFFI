@@ -5,7 +5,6 @@
 #include <functional>
 #include <vector>
 #include "jitffi.h"
-#include "opcode.h"
 using namespace JitFFI;
 using namespace JitFFI::CurrABI;
 

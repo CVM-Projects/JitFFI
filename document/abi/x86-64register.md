@@ -13,9 +13,9 @@ x : returning
 Register|SysV64|MS64
 --------|------|----
 %rax|N(x)|N(x)
-%rbx|Y|Y
 %rcx|N(4)|N(1)
 %rdx|N(3 x)|N(2)
+%rbx|Y|Y
 %rsp|Y|Y
 %rbp|Y|Y
 %rsi|N(2)|Y
