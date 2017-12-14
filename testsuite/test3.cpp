@@ -105,18 +105,13 @@ type5 print_struct5(type5 t1, type5 t2)
 template <typename _FTy, typename _Ty>
 void Call_X(JitFuncCreater &jfc, _FTy &func, const ArgTypeUnit &atu, const _Ty &t1, const _Ty &t2)
 {
-	ArgTypeList tl{ &atu, &atu };
-	ArgDataList dl{ &t1, &t2 };
-	ArgumentInfo info = CurrABI::get_argumentinfo(atu, tl);
-	CurrABI::create_function_caller(jfc, info, &func, dl);
+	CurrABI::create_function_caller(jfc, GetInfo(atu, { &atu, &atu }), &func, { &t1, &t2 });
 }
 
 template <typename _FTy>
 void Call_Y(JitFuncCreater &jfc, _FTy &func, const ArgTypeUnit &atu)
 {
-	ArgTypeList tl{ &atu, &atu };
-	ArgumentInfo info = CurrABI::get_argumentinfo(atu, tl);
-	CurrABI::create_function_caller(jfc, info, &func);
+	CurrABI::create_function_caller(jfc, GetInfo(atu, { &atu, &atu }), &func);
 }
 
 void Call_1(JitFuncCreater &jfc)
@@ -201,14 +196,10 @@ double f6(double x1)
 
 void Call_6()
 {
-	auto f = Compile<void(void *)>([](JitFuncCreater &jfc) {
-		double v = 3.14;
-
-		ArgumentInfo info = CurrABI::get_argumentinfo(atu_double, { &atu_double });
-		CurrABI::create_function_caller(jfc, info, &f6, { &v });
-	});
-
+	double v = 3.14;
 	double r = 0.5;
+
+	auto f = Compile(GetInfo(atu_double, { &atu_double }), f6, { &v });
 
 	f(&r);
 
@@ -217,19 +208,13 @@ void Call_6()
 
 void Call_6y()
 {
-
-	auto f = Compile<void(void *, void **)>([](JitFuncCreater &jfc) {
-		ArgumentInfo info = CurrABI::get_argumentinfo(atu_double, { &atu_double });
-		CurrABI::create_function_caller(jfc, info, &f6);
-	});
+	auto f = Compile(GetInfo(atu_double, { &atu_double }), f6);
 
 	double npL[3] = { 3.14, 0.0, 1.57 };
 	void* dl[] = { npL + 0 };
 	f(npL + 1, dl);
 	printf("%lf\n", npL[1]);
 }
-
-#include "../source/jitffi-def.h"
 
 int main()
 {

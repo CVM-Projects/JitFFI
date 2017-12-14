@@ -37,7 +37,7 @@ using uint = unsigned int;
 // JIT Usage:
 //    Call(XXX);
 
-using CallerProcess = void(JitFuncCreater &jfc);
+using CallerProcess = std::function<void(JitFuncCreater &jfc)>;
 
 inline void run_objdump(JitFuncCreater &jfc)
 {
@@ -51,7 +51,7 @@ inline void run_objdump(JitFuncCreater &jfc)
 }
 
 template <typename T = void>
-inline auto Compile(CallerProcess *handler, bool use_new_memory = false, size_t size = 0x1000)
+inline auto Compile(CallerProcess handler, bool use_new_memory = true, size_t size = 0x1000)
 {
 	static JitFuncPool global_pool(0x1000, JitFuncPool::ReadWrite);
 	JitFuncPool *pool;
@@ -73,6 +73,40 @@ inline auto Compile(CallerProcess *handler, bool use_new_memory = false, size_t 
 	return jf.func<T>();
 }
 
+using F1 = void(void *dst, void *data);
+using F2 = void(void *dst);
+
+F1* Compile(const ArgumentInfo &info, void *func)
+{
+	return Compile<F1>([&](JitFuncCreater &jfc) {
+		CurrABI::create_function_caller(jfc, info, func);
+	});
+}
+
+ArgumentInfo GetInfo(const ArgTypeUnit &restype, const ArgTypeList &atlist)
+{
+	return CurrABI::get_argumentinfo(restype, atlist);
+}
+
+template <typename _FTy>
+F1* Compile(const ArgumentInfo &info, _FTy func)
+{
+	return Compile(info, (void*)(func));
+}
+
+F2* Compile(const ArgumentInfo &info, void *func, const ArgDataList &adl)
+{
+	return Compile<F2>([&](JitFuncCreater &jfc) {
+		CurrABI::create_function_caller(jfc, info, func, adl);
+	});
+}
+
+template <typename _FTy>
+F2* Compile(const ArgumentInfo &info, _FTy func, const ArgDataList &adl)
+{
+	return Compile(info, (void*)(func), adl);
+}
+
 template <typename _FTy>
 inline void Run(_FTy f, void *dst = nullptr)
 {
@@ -87,14 +121,14 @@ inline void Run(_FTy f, void* list[], void *dst = nullptr)
 	printf("[Return:0x%016llX]\n", v);
 }
 
-inline void Call(CallerProcess *handler, void *dst = nullptr)
+inline void Call(CallerProcess handler, void *dst = nullptr)
 {
 	auto f = Compile<uint64_t(void*)>(handler);
 
 	Run(f, dst);
 }
 
-inline void Call(CallerProcess *handler, void* list[], void *dst = nullptr)
+inline void Call(CallerProcess handler, void* list[], void *dst = nullptr)
 {
 	auto f = Compile<uint64_t(void*, void*[])>(handler);
 

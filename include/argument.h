@@ -32,7 +32,6 @@ namespace JitFFI
 	struct ArgTypeUnit : public ArgTypeUnitBase
 	{
 		using TypeList = std::vector<const ArgTypeUnit*>;
-		using TypeBaseList = std::vector<const ArgTypeUnitBase*>;
 
 		explicit ArgTypeUnit(ArgTypeIndex type, size_t size)
 			: ArgTypeUnitBase(type, uint32_t(size)) {}
@@ -44,8 +43,10 @@ namespace JitFFI
 		TypeList typelist;
 	};
 
-	using ArgDataList = std::list<const void*>;
-	using ArgTypeList = std::list<const ArgTypeUnit*>;
+	using ArgData = const void*;
+	using ArgType = const ArgTypeUnit*;
+	using ArgDataList = std::list<ArgData>;
+	using ArgTypeList = std::list<ArgType>;
 }
 
 namespace JitFFI
