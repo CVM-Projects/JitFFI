@@ -261,82 +261,81 @@ void print_struct14(type14 t)
 }
 
 template <typename _FTy, typename _Ty>
-void Call_X(JitFuncCreater &jfc, _FTy &func, const ArgTypeUnit &atu, const _Ty &t)
+auto Call_X(JitFuncCreater &jfc, _FTy *func, const ArgTypeUnit &atu, const _Ty &t)
 {
 	ArgTypeList tl{ &atu };
 	ArgDataList dl{ &t };
-	ArgumentInfo info = CurrABI::get_argumentinfo(atu_void, tl);
-	CurrABI::create_function_caller(jfc, info, &func, dl);
+	return CurrABI::Compile(jfc, CurrABI::GetArgInfo(atu_void, tl), func, dl);
 }
 
-void Call_1(JitFuncCreater &jfc)
+auto Call_1(JitFuncCreater &jfc)
 {
 	type1 t{ 1 };
 
-	Call_X(jfc, print_struct1, atu_type1, t);
+	return Call_X(jfc, print_struct1, atu_type1, t);
 }
 
-void Call_2(JitFuncCreater &jfc)
+auto Call_2(JitFuncCreater &jfc)
 {
 	type2 t{ 1, 2.5789763 };
 
-	Call_X(jfc, print_struct2, atu_type2, t);
+	return Call_X(jfc, print_struct2, atu_type2, t);
 }
 
-void Call_3(JitFuncCreater &jfc)
+auto Call_3(JitFuncCreater &jfc)
 {
 	type3 t = { 1, 2.5789763, 3 };
 
-	Call_X(jfc, print_struct3, atu_type3, t);
+	return Call_X(jfc, print_struct3, atu_type3, t);
 }
 
-void Call_4(JitFuncCreater &jfc)
+auto Call_4(JitFuncCreater &jfc)
 {
 	type4 t = { 1, 0x22, 2.5789763 };
 
-	Call_X(jfc, print_struct4, atu_type4, t);
+	return Call_X(jfc, print_struct4, atu_type4, t);
 }
 
-void Call_5(JitFuncCreater &jfc)
+auto Call_5(JitFuncCreater &jfc)
 {
 	type5 t = { 1, 2 };
 
-	Call_X(jfc, print_struct5, atu_type5, t);
+	return Call_X(jfc, print_struct5, atu_type5, t);
 }
 
-void Call_6(JitFuncCreater &jfc)
+auto Call_6(JitFuncCreater &jfc)
 {
 	type6 t = { 1, 2, 3 };
 
-	Call_X(jfc, print_struct6, atu_type6, t);
+	return Call_X(jfc, print_struct6, atu_type6, t);
 }
 
-void Call_7(JitFuncCreater &jfc)
+auto Call_7(JitFuncCreater &jfc)
 {
 	type7 t = { type1{ 1 }, type1{ 2 } };
 
-	Call_X(jfc, print_struct7, atu_type7, t);
+	return Call_X(jfc, print_struct7, atu_type7, t);
 }
 
-void Call_8(JitFuncCreater &jfc)
+auto Call_8(JitFuncCreater &jfc)
 {
 	type8 t = { type1{ 1 }, type2{ 2, 3 } };
 
-	Call_X(jfc, print_struct8, atu_type8, t);
+	return Call_X(jfc, print_struct8, atu_type8, t);
 }
 
-void Call_9(JitFuncCreater &jfc)
+auto Call_9(JitFuncCreater &jfc)
 {
 	type9 t = { 1, 2, 3, 4, 5, 6, 7 };
 
-	Call_X(jfc, print_struct9, atu_type9, t);
+	return Call_X(jfc, print_struct9, atu_type9, t);
 }
 
-void Call_10(JitFuncCreater &jfc)
+auto Call_10(JitFuncCreater &jfc)
 {
 	type10 t = { type9 { 1, 2, 3, 4, 5, 6, 7 }, type9{ 8, 9, 10, 11, 12, 13, 14 } };
 
-	Call_X(jfc, print_struct10, atu_type10, t);
+	return Call_X(jfc, print_struct10, atu_type10, t);
 }
 
 float convert_f32(int v)
@@ -344,32 +343,32 @@ float convert_f32(int v)
 	return *(float*)(&v);
 }
 
-void Call_11(JitFuncCreater &jfc)
+auto Call_11(JitFuncCreater &jfc)
 {
 	type11 t = { type11a { 1, convert_f32(2) }, type11b { convert_f32(3), 4 } };
 
-	Call_X(jfc, print_struct11, atu_type11, t);
+	return Call_X(jfc, print_struct11, atu_type11, t);
 }
 
-void Call_12(JitFuncCreater &jfc)
+auto Call_12(JitFuncCreater &jfc)
 {
 	type12 t = { type12a { convert_f32(1), convert_f32(2) }, type12b { convert_f32(3), convert_f32(4) } };
 
-	Call_X(jfc, print_struct12, atu_type12, t);
+	return Call_X(jfc, print_struct12, atu_type12, t);
 }
 
-void Call_13(JitFuncCreater &jfc)
+auto Call_13(JitFuncCreater &jfc)
 {
 	type13 t = { type13a { 1 }, type13b { convert_f32(2), convert_f32(3), convert_f32(4) } };
 
-	Call_X(jfc, print_struct13, atu_type13, t);
+	return Call_X(jfc, print_struct13, atu_type13, t);
 }
 
-void Call_14(JitFuncCreater &jfc)
+auto Call_14(JitFuncCreater &jfc)
 {
 	type14 t = { 1, 2, 3, 4 };
 
-	Call_X(jfc, print_struct14, atu_type14, t);
+	return Call_X(jfc, print_struct14, atu_type14, t);
 }
 
 #include "../source/jitffi-def.h"

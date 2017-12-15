@@ -232,7 +232,9 @@ int function_2(int a, float b, double c, long double d)
 	return 0;
 }
 
-void Call_1(JitFuncCreater &jfc)
+using namespace JitFFI::CurrABI;
+
+auto Call_1(JitFuncCreater &jfc)
 {
 	double v0 = 1.0;
 	double v1 = 2.0;
@@ -242,11 +244,10 @@ void Call_1(JitFuncCreater &jfc)
 	ArgDataList dl = { &v0, &v1, &v2, &v3 };
 	ArgTypeList tl = { &atu_double, &atu_double, &atu_double, &atu_double };
 
-	ArgumentInfo arginfo = CurrABI::get_argumentinfo(atu_void, tl);
-	CurrABI::create_function_caller(jfc, arginfo, &callerX4, dl);
+	return Compile(jfc, GetArgInfo(atu_void, tl), callerX4, dl);
 }
 
-void Call_2(JitFuncCreater &jfc)
+auto Call_2(JitFuncCreater &jfc)
 {
 	const unsigned int argn = 10;
 
@@ -260,11 +261,10 @@ void Call_2(JitFuncCreater &jfc)
 		tl.push_back(&atu_uint64);
 	}
 
-	ArgumentInfo arginfo = CurrABI::get_argumentinfo(atu_void, tl);
-	CurrABI::create_function_caller(jfc, arginfo, &callerN10, dl);
+	return Compile(jfc, GetArgInfo(atu_void, tl), callerN10, dl);
 }
 
-void Call_3(JitFuncCreater &jfc)
+auto Call_3(JitFuncCreater &jfc)
 {
 	const unsigned int argn = 8;
 
@@ -284,28 +284,26 @@ void Call_3(JitFuncCreater &jfc)
 		dl.push_back(&arr[i]);
 	}
 
-	ArgumentInfo arginfo = CurrABI::get_argumentinfo(atu_void, tl);
-	CurrABI::create_function_caller(jfc, arginfo, &callerNX, dl);
+	return Compile(jfc, GetArgInfo(atu_void, tl), callerNX, dl);
 }
 
 
-void Call_4(JitFuncCreater &jfc)
+auto Call_4(JitFuncCreater &jfc)
 {
 	long double ld = 2.5;
 
-	ArgumentInfo arginfo = CurrABI::get_argumentinfo(atu_void, { &atu_ldouble });
-	CurrABI::create_function_caller(jfc, arginfo, &function_1, { &ld });
+	return Compile(jfc, GetArgInfo(atu_void, { &atu_ldouble }), function_1, { &ld });
 }
 
-void Call_5(JitFuncCreater &jfc)
+auto Call_5(JitFuncCreater &jfc)
 {
 	int i = 5;
 	float f = 6.75;
 	double d = 8.0;
 	long double ld = 2.5;
 
-	ArgumentInfo arginfo = CurrABI::get_argumentinfo(atu_void, { &atu_int, &atu_float, &atu_double, &atu_ldouble });
-	CurrABI::create_function_caller(jfc, arginfo, &function_2, { &i, &f, &d, &ld });
+	return Compile(jfc, GetArgInfo(atu_void, { &atu_int, &atu_float, &atu_double, &atu_ldouble }),
+		function_2, { &i, &f, &d, &ld });
 }
 
 int main(int argc, char *argv[])

@@ -52,18 +52,17 @@ int main(void)
 
 	ArgTypeList tl = { &atu_double };
 
-	ArgumentInfo info = get_argumentinfo(atu_double, tl);
+	ArgumentInfo info = GetArgInfo(atu_double, tl);
 
 	JitFuncPool jfp(0x1000, JitFuncPool::ReadWrite);
 	JitFunc jf(jfp);
 	JitFuncCreater jfc(jf);
 
-	create_function_caller(jfc, info, (void*)&func);
-	auto f = jfc.get().func<void(void*, void**)>();
+	auto f = Compile(jfc, info, func);
 
 	double v = 3.14;
 	double r;
-	void* dl[] = { &v };
+	const void* dl[] = { &v };
 	f(&r, dl);
 	printf("%lf\n", r);
 }
@@ -112,8 +111,7 @@ int main(void)
 	jitffi_jf *jf = jitffi_create_jf(jfp);
 	jitffi_jfc *jfc = jitffi_create_jfc(jf);
 
-	jitffi_compile(jfc, info, (void*)&func, NULL);
-	jitffi_f2 f = (jitffi_f2)jitffi_getfunc(jfc);
+	jitffi_f2* f = (jitffi_f2*)jitffi_compile(jfc, info, (void*)&func, NULL);
 
 	double v = 3.14;
 	double r;

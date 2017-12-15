@@ -29,9 +29,9 @@ extern "C" {
 
 	typedef const jitffi_argtype * jitffi_argtype_ptr;
 
-	typedef void(*jitffi_f1) (void* dst);
-	typedef void(*jitffi_f2) (void* dst, const void* datalist[]);
-	typedef void(*jitffi_f3) (void* dst, const void *func, const void* datalist[]);
+	typedef void(jitffi_f1)(void* dst);
+	typedef void(jitffi_f2)(void* dst, const void* datalist[]);
+	typedef void(jitffi_f3)(void* dst, const void *func, const void* datalist[]);
 
 	// C++                    -> C
 	// JitFuncCreater &       -> jitffi_jfc *
@@ -43,10 +43,11 @@ extern "C" {
 	void jitffi_release_jfp(jitffi_jfp *jfc);
 	void jitffi_release_jf(jitffi_jf *jfc);
 	void jitffi_release_jfc(jitffi_jfc *jfc);
+	void jitffi_release_arginfo(jitffi_arginfo *ai);
 
 	jitffi_arginfo* jitffi_create_arginfo(const jitffi_argtype *restype, const jitffi_argtype_ptr typelist[]);
 
-	void jitffi_compile(jitffi_jfc *jfc, const jitffi_arginfo *info, const void *func, const void * datalist[]);
+	void* jitffi_compile(jitffi_jfc *jfc, const jitffi_arginfo *info, void *func, const void * datalist[]);
 	void* jitffi_getfunc(jitffi_jfc *jfc);
 
 	// Types

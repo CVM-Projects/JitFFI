@@ -503,7 +503,7 @@ namespace JitFFI
 	{
 		// 
 
-		ArgumentInfo get_argumentinfo(const ArgTypeUnit &restype, const ArgTypeList &atlist) {
+		ArgumentInfo GetArgInfo(const ArgTypeUnit &restype, const ArgTypeList &atlist) {
 			ArgTypeInfo *p_ati = new ArgTypeInfo(create_argtypeinfo(restype, atlist));
 			return ArgumentInfo(P_MS64, p_ati);
 		}
@@ -527,7 +527,7 @@ namespace JitFFI
 			ret(jfcc.data);
 		}
 
-		void create_function_caller(JitFuncCreater &jfc, const ArgumentInfo &argumentinfo, void *func)
+		void CreateCaller(JitFuncCreater &jfc, const ArgumentInfo &argumentinfo, void *func)
 		{
 			const ArgTypeInfo &ati = get_argtypeinfo(argumentinfo);
 
@@ -546,7 +546,7 @@ namespace JitFFI
 			create_function_caller_foot(jfcc);
 		}
 
-		void create_function_caller(JitFuncCreater &jfc, const ArgumentInfo &argumentinfo, void *func, const ArgDataList &adlist)
+		void CreateCaller(JitFuncCreater &jfc, const ArgumentInfo &argumentinfo, void *func, const ArgDataList &adlist)
 		{
 			assert(adlist.size() < UINT32_MAX);
 

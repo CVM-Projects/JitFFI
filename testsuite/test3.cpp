@@ -76,16 +76,13 @@ type4 print_struct4(type4 t1, type4 t2)
 typedef struct {
 	uint8_t d0;
 	uint8_t d0x[7];
-	//uint8_t d1;
-	//uint8_t d1x[7];
 	uint8_t d1;
 } type5;
 
 const ArgTypeUnit atu_type5(sizeof(type5), alignof(type5), {
-	//&atu_uint64,
 	&atu_uint8, &atu_uint8, &atu_uint8, &atu_uint8, &atu_uint8, &atu_uint8, &atu_uint8, &atu_uint8,
 	&atu_uint8
-});
+	});
 
 type5 print_struct5(type5 t1, type5 t2)
 {
@@ -103,50 +100,51 @@ type5 print_struct5(type5 t1, type5 t2)
 }
 
 template <typename _FTy, typename _Ty>
-void Call_X(JitFuncCreater &jfc, _FTy &func, const ArgTypeUnit &atu, const _Ty &t1, const _Ty &t2)
+auto Call_X(JitFuncCreater &jfc, _FTy &func, const ArgTypeUnit &atu, const _Ty &t1, const _Ty &t2)
 {
-	CurrABI::create_function_caller(jfc, GetInfo(atu, { &atu, &atu }), &func, { &t1, &t2 });
+	return CurrABI::Compile(jfc, CurrABI::GetArgInfo(atu, { &atu, &atu }), func, { &t1, &t2 });
 }
 
 template <typename _FTy>
-void Call_Y(JitFuncCreater &jfc, _FTy &func, const ArgTypeUnit &atu)
+auto Call_Y(JitFuncCreater &jfc, _FTy &func, const ArgTypeUnit &atu)
 {
-	CurrABI::create_function_caller(jfc, GetInfo(atu, { &atu, &atu }), &func);
+	return CurrABI::Compile(jfc, CurrABI::GetArgInfo(atu, { &atu, &atu }), func);
 }
 
-void Call_1(JitFuncCreater &jfc)
+auto Call_1(JitFuncCreater &jfc)
 {
 	type1 t1{ 1, 2 };
 	type1 t2{ 3, 4 };
 
-	Call_X(jfc, print_struct1, atu_type1, t1, t2);
+	return Call_X(jfc, print_struct1, atu_type1, t1, t2);
 }
 
-void Call_2(JitFuncCreater &jfc)
+auto Call_2(JitFuncCreater &jfc)
 {
 	type2 t1{ 1, 2 };
 	type2 t2{ 3, 4 };
 
-	Call_X(jfc, print_struct2, atu_type2, t1, t2);
+	return Call_X(jfc, print_struct2, atu_type2, t1, t2);
 }
 
-void Call_3(JitFuncCreater &jfc)
+auto Call_3(JitFuncCreater &jfc)
 {
 	type3 t1{ 1, 2, 3 };
 	type3 t2{ 4, 5, 6 };
 
-	Call_X(jfc, print_struct3, atu_type3, t1, t2);
+	return Call_X(jfc, print_struct3, atu_type3, t1, t2);
 }
 
-void Call_4(JitFuncCreater &jfc)
+auto Call_4(JitFuncCreater &jfc)
 {
 	type4 t1{ 1, 2 };
 	type4 t2{ 3, 4 };
 
-	Call_X(jfc, print_struct4, atu_type4, t1, t2);
+	return Call_X(jfc, print_struct4, atu_type4, t1, t2);
 }
 
-void Call_5(JitFuncCreater &jfc)
+template <typename _FTy>
+void Call_5base(_FTy f)
 {
 	type5 t1;
 	t1.d0 = 1;
@@ -155,22 +153,7 @@ void Call_5(JitFuncCreater &jfc)
 	t2.d0 = 3;
 	t2.d1 = 4;
 
-	Call_X(jfc, print_struct5, atu_type5, t1, t2);
-}
-
-void Call_5y()
-{
-	auto f = Compile<void(void *, void **)>([](JitFuncCreater &jfc) { Call_Y(jfc, print_struct5, atu_type5); });
-
-	type5 t1;
-	t1.d0 = 1;
-	t1.d1 = 2;
-	type5 t2;
-	t2.d0 = 3;
-	t2.d1 = 4;
-
-	void *dl[] = { &t1, &t2 };
-
+	const void *dl[] = { &t1, &t2 };
 
 	uint8_t *np = (uint8_t*)calloc(sizeof(type5) + 5, 1);
 	np[sizeof(type5) + 0] = 0x11;
@@ -180,6 +163,7 @@ void Call_5y()
 	np[sizeof(type5) + 4] = 0x55;
 
 	f(np, dl);
+
 	printf("<0x%016llX>\n", *(uint64_t*)np);
 	print_struct5(*(type5*)np, *(type5*)np);
 	for (unsigned int i = 0; i != sizeof(type5) + 5; ++i) {
@@ -188,10 +172,30 @@ void Call_5y()
 	printf("\n");
 }
 
+void Call_5()
+{
+	Call_5base([](uint8_t *np, const void *dl[]) {
+		auto f = Compile([&](JitFuncCreater &jfc) {
+			return Call_X(jfc, print_struct5, atu_type5, *(type5*)dl[0], *(type5*)dl[1]);
+		});
+		f(np);
+	});
+}
+
+void Call_5y()
+{
+	Call_5base([](uint8_t *np, const void *dl[]) {
+		auto f = Compile([](JitFuncCreater &jfc) {
+			return Call_Y(jfc, print_struct5, atu_type5);
+		});
+		f(np, dl);
+	});
+}
+
 double f6(double x1)
 {
 	printf("%lf\n", x1);
-	return x1;
+	return x1 * 2;
 }
 
 void Call_6()
@@ -199,7 +203,9 @@ void Call_6()
 	double v = 3.14;
 	double r = 0.5;
 
-	auto f = Compile(GetInfo(atu_double, { &atu_double }), f6, { &v });
+	auto f = Compile([&](JitFuncCreater &jfc) {
+		return Compile(jfc, GetArgInfo(atu_double, { &atu_double }), f6, { &v });
+	});
 
 	f(&r);
 
@@ -208,10 +214,12 @@ void Call_6()
 
 void Call_6y()
 {
-	auto f = Compile(GetInfo(atu_double, { &atu_double }), f6);
+	auto f = Compile([&](JitFuncCreater &jfc) {
+		return Compile(jfc, GetArgInfo(atu_double, { &atu_double }), f6);
+	});
 
 	double npL[3] = { 3.14, 0.0, 1.57 };
-	void* dl[] = { npL + 0 };
+	const void* dl[] = { npL + 0 };
 	f(npL + 1, dl);
 	printf("%lf\n", npL[1]);
 }
@@ -241,19 +249,7 @@ int main()
 	print_struct4(*(type4*)p, *(type4*)p);
 
 	printf("===5===\n");
-	uint8_t *np = (uint8_t*)calloc(sizeof(type5) + 5, 1);
-	np[sizeof(type5) + 0] = 0x11;
-	np[sizeof(type5) + 1] = 0x22;
-	np[sizeof(type5) + 2] = 0x33;
-	np[sizeof(type5) + 3] = 0x44;
-	np[sizeof(type5) + 4] = 0x55;
-	Call(Call_5, np);
-	printf("<0x%016llX>\n", *(uint64_t*)np);
-	print_struct5(*(type5*)np, *(type5*)np);
-	for (unsigned int i = 0; i != sizeof(type5) + 5; ++i) {
-		printf("%02X ", np[i]);
-	}
-	printf("\n");
+	Call_5();
 
 	printf("===5y===\n");
 	Call_5y();
@@ -263,9 +259,6 @@ int main()
 
 	printf("===6y===\n");
 	Call_6y();
-
-
-	//Call(Call_NNN);
 
 	printf("===E===\n");
 	printf("<0x%016llX>\n", (size_t)p);

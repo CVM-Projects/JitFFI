@@ -43,6 +43,9 @@ extern "C"
 	void jitffi_release_jfc(jitffi_jfc *jfc) {
 		delete jfc;
 	}
+	void jitffi_release_arginfo(jitffi_arginfo *ai) {
+		delete ai;
+	}
 
 	jitffi_arginfo* jitffi_create_arginfo(const jitffi_argtype *restype, const jitffi_argtype_ptr typelist[]) {
 		JitFFI::ArgTypeList atl;
@@ -50,12 +53,12 @@ extern "C"
 			atl.push_back(*p);
 		}
 		
-		return new jitffi_arginfo(JitFFI::CurrABI::get_argumentinfo(*restype, atl));
+		return new jitffi_arginfo(JitFFI::CurrABI::GetArgInfo(*restype, atl));
 	}
 
-	void jitffi_compile(jitffi_jfc *jfc, const jitffi_arginfo *info, const void *func, const void * datalist[]) {
+	void* jitffi_compile(jitffi_jfc *jfc, const jitffi_arginfo *info, void *func, const void * datalist[]) {
 		if (datalist == nullptr) {
-			JitFFI::CurrABI::create_function_caller(*jfc, *info, func);
+			JitFFI::CurrABI::CreateCaller(*jfc, *info, func);
 		}
 		else {
 			JitFFI::ArgDataList adl;
@@ -63,8 +66,10 @@ extern "C"
 				adl.push_back(*p);
 			}
 
-			JitFFI::CurrABI::create_function_caller(*jfc, *info, func, adl);
+			JitFFI::CurrABI::CreateCaller(*jfc, *info, func, adl);
 		}
+
+		return jitffi_getfunc(jfc);
 	}
 
 	void* jitffi_getfunc(jitffi_jfc *jfc) {

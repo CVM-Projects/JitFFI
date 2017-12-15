@@ -12,25 +12,32 @@
 
 namespace JitFFI
 {
-	// get_argumentinfo       = (ArgTypeUnit ArgTypeList)              -> ArgumentInfo
-	// create_function_caller = (ArgumentInfo Func)                    -> function<void (void*, ArgDataList)>
-	// create_function_caller = (ArgumentInfo Func ArgDataList)        -> function<void (void*)>
-	// create_function_caller = (ArgumentInfo Func ArgDataListPartial) -> function<void (void*, ArgDataListPartial)>
-	// create_function_caller = (ArgumentInfo)                         -> function<void (Func*, void*, ArgDataList)>
-	// create_function_caller = (ArgumentInfo ArgDataList)             -> function<void (Func*, void*)>
-	// create_function_caller = (ArgumentInfo ArgDataListPartial)      -> function<void (Func*, void*, ArgDataListPartial)>
+	// GetArgInfo  = (ArgTypeUnit ArgTypeList)              -   > ArgumentInfo
+	// Compile     = (JFC ArgumentInfo Func)                    -> function<void (void*, ArgDataList)>
+	// Compile     = (JFC ArgumentInfo Func ArgDataList)        -> function<void (void*)>
+	// Compile     = (JFC ArgumentInfo Func ArgDataListPartial) -> function<void (void*, ArgDataListPartial)>
+	// Compile     = (JFC ArgumentInfo)                         -> function<void (Func*, void*, ArgDataList)>
+	// Compile     = (JFC ArgumentInfo ArgDataList)             -> function<void (Func*, void*)>
+	// Compile     = (JFC ArgumentInfo ArgDataListPartial)      -> function<void (Func*, void*, ArgDataListPartial)>
+
+	using f1 = void(void* dst);
+	using f2 = void(void* dst, const void* datalist[]);
+	using f3 = void(void* dst, const void *func);
+	using f4 = void(void* dst, const void *func, const void* datalist[]);
 
 #define _DECLARE_create_function_caller \
-	ArgumentInfo get_argumentinfo(const ArgTypeUnit &restype, const ArgTypeList &atlist); \
-	void create_function_caller(JitFuncCreater &jfc, const ArgumentInfo &argumentinfo, void *func, const ArgDataList &adlist); \
-	void create_function_caller(JitFuncCreater &jfc, const ArgumentInfo &argumentinfo, void *func); \
+	ArgumentInfo GetArgInfo(const ArgTypeUnit &restype, const ArgTypeList &atlist); \
+	void CreateCaller(JitFuncCreater &jfc, const ArgumentInfo &argumentinfo, void *func, const ArgDataList &adlist); \
+	void CreateCaller(JitFuncCreater &jfc, const ArgumentInfo &argumentinfo, void *func); \
 	template <typename _FTy> \
-	void create_function_caller(JitFuncCreater &jfc, const ArgumentInfo &argumentinfo, _FTy *func, const ArgDataList &adlist) { \
-		create_function_caller(jfc, argumentinfo, (void*)func, adlist); \
+	f1* Compile(JitFuncCreater &jfc, const ArgumentInfo &argumentinfo, _FTy *func, const ArgDataList &adlist) { \
+		CreateCaller(jfc, argumentinfo, (void*)func, adlist); \
+		return jfc.get().func<f1>(); \
 	} \
 	template <typename _FTy> \
-	void create_function_caller(JitFuncCreater &jfc, const ArgumentInfo &argumentinfo, _FTy *func) { \
-		create_function_caller(jfc, argumentinfo, (void*)func); \
+	f2* Compile(JitFuncCreater &jfc, const ArgumentInfo &argumentinfo, _FTy *func) { \
+		CreateCaller(jfc, argumentinfo, (void*)func); \
+		return jfc.get().func<f2>(); \
 	}
 
 	namespace SysV64 { _DECLARE_create_function_caller }

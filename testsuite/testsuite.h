@@ -32,7 +32,7 @@ using uint = unsigned int;
 
 // AOT Usage:
 //    auto f = Compile(XXX, true);
-//    Run(f);
+//    f(xxx);
 
 // JIT Usage:
 //    Call(XXX);
@@ -50,8 +50,8 @@ inline void run_objdump(JitFuncCreater &jfc)
 	printf("\n");
 }
 
-template <typename T = void>
-inline auto Compile(CallerProcess handler, bool use_new_memory = true, size_t size = 0x1000)
+template <typename _FTy>
+inline auto Compile(_FTy handler, bool use_new_memory = true, size_t size = 0x1000)
 {
 	static JitFuncPool global_pool(0x1000, JitFuncPool::ReadWrite);
 	JitFuncPool *pool;
@@ -66,71 +66,25 @@ inline auto Compile(CallerProcess handler, bool use_new_memory = true, size_t si
 	JitFunc jf(*pool);
 	JitFuncCreater jfc(jf);
 
-	handler(jfc);
+	auto f = handler(jfc);
 
 	run_objdump(jfc);
 
-	return jf.func<T>();
-}
-
-using F1 = void(void *dst, void *data);
-using F2 = void(void *dst);
-
-F1* Compile(const ArgumentInfo &info, void *func)
-{
-	return Compile<F1>([&](JitFuncCreater &jfc) {
-		CurrABI::create_function_caller(jfc, info, func);
-	});
-}
-
-ArgumentInfo GetInfo(const ArgTypeUnit &restype, const ArgTypeList &atlist)
-{
-	return CurrABI::get_argumentinfo(restype, atlist);
+	return f;
 }
 
 template <typename _FTy>
-F1* Compile(const ArgumentInfo &info, _FTy func)
+inline void Call(_FTy handler, void *dst = nullptr)
 {
-	return Compile(info, (void*)(func));
-}
+	auto f = Compile(handler);
 
-F2* Compile(const ArgumentInfo &info, void *func, const ArgDataList &adl)
-{
-	return Compile<F2>([&](JitFuncCreater &jfc) {
-		CurrABI::create_function_caller(jfc, info, func, adl);
-	});
+	f(dst);
 }
 
 template <typename _FTy>
-F2* Compile(const ArgumentInfo &info, _FTy func, const ArgDataList &adl)
+inline void Call(_FTy handler, void* list[], void *dst = nullptr)
 {
-	return Compile(info, (void*)(func), adl);
-}
+	auto f = Compile(handler);
 
-template <typename _FTy>
-inline void Run(_FTy f, void *dst = nullptr)
-{
-	uint64_t v = f(dst);
-	printf("[Return:0x%016llX]\n", v);
-}
-
-template <typename _FTy>
-inline void Run(_FTy f, void* list[], void *dst = nullptr)
-{
-	uint64_t v = f(dst, list);
-	printf("[Return:0x%016llX]\n", v);
-}
-
-inline void Call(CallerProcess handler, void *dst = nullptr)
-{
-	auto f = Compile<uint64_t(void*)>(handler);
-
-	Run(f, dst);
-}
-
-inline void Call(CallerProcess handler, void* list[], void *dst = nullptr)
-{
-	auto f = Compile<uint64_t(void*, void*[])>(handler);
-
-	Run(f, list, dst);
+	f(list, dst);
 }
