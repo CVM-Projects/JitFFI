@@ -1,5 +1,5 @@
 # JitFFI
-JIT compiler for FFI (Foreign-Function Interface).
+A fast and customizable JIT compiler for FFI (Foreign-Function Interface).
 
 ## Support
 
@@ -7,6 +7,23 @@ Architecture|Operating System|Calling convention |Compilers|Support
 ------------|----------------|-------------------|---------|-------
 x86-64|Windows|Microsoft x64|MSVC, MinGW|Most
 x86-64|Linux|System V AMD64 ABI|GCC|Most
+
+## Why Fast and Customizable?
+
+The JitFFI is a compiler which compiles function info to a FFI function.
+
+Call a function with JitFFI = Call a FFI function that JitFFI compiled. So it is fast.
+
+It have many modes to compile, includes:
+
+1. Compile function-info.
+2. Compile function-info & arguments.
+3. Compile function-info & arguments & function-address.
+...
+and more.
+
+You can let JitFFI to compile in a mode you need. So it is customizable.
+
 
 ## Run Example
 
