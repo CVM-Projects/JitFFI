@@ -21,7 +21,7 @@ std::vector<byte> operator+(const std::vector<byte> &v1, const std::vector<byte>
 	return v;
 }
 
-void Create_OP_x64_mov(JitFuncCreater &jfc, const Regs &regs)
+bool Create_OP_x64_mov(JitFuncCreater &jfc, const Regs &regs)
 {
 	using namespace OpCode_x64;
 
@@ -88,9 +88,11 @@ void Create_OP_x64_mov(JitFuncCreater &jfc, const Regs &regs)
 	mov_offset_u32(jfc, pr8, rax, 5);
 	mov_offset_u32(jfc, prax, r8, 5);
 	mov_offset_u32(jfc, pr8, r8, 5);
+
+    return true;
 }
 
-void Create_OP_x64_push_pop(JitFuncCreater &jfc, const Regs &regs)
+bool Create_OP_x64_push_pop(JitFuncCreater &jfc, const Regs &regs)
 {
 	using namespace OpCode_x64;
 
@@ -115,9 +117,11 @@ void Create_OP_x64_push_pop(JitFuncCreater &jfc, const Regs &regs)
 	pop_offset_byte(jfc, pr8, 5);
 	pop_offset_u32(jfc, prax, 5);
 	pop_offset_u32(jfc, pr8, 5);
+
+    return true;
 }
 
-void Create_OP_x64_add_sub(JitFuncCreater &jfc, const Regs &regs)
+bool Create_OP_x64_add_sub(JitFuncCreater &jfc, const Regs &regs)
 {
 	using namespace OpCode_x64;
 
@@ -132,9 +136,11 @@ void Create_OP_x64_add_sub(JitFuncCreater &jfc, const Regs &regs)
 
 	for (byte r : regs.rq)
 		sub_rx_u32(jfc, static_cast<Register>(r), 0x1);
+
+    return true;
 }
 
-void Create_OP_x64_mov_rx_dat(JitFuncCreater &jfc, const Regs &regs)
+bool Create_OP_x64_mov_rx_dat(JitFuncCreater &jfc, const Regs &regs)
 {
 	using namespace OpCode_x64;
 
@@ -149,9 +155,11 @@ void Create_OP_x64_mov_rx_dat(JitFuncCreater &jfc, const Regs &regs)
 
 	for (byte r : regs.rb)
 		movb_u8(jfc, static_cast<Register>(r), 0x12);
+
+    return true;
 }
 
-void Create_OP_x64_mov_rx_xmm(JitFuncCreater &jfc, const Regs &regs)
+bool Create_OP_x64_mov_rx_xmm(JitFuncCreater &jfc, const Regs &regs)
 {
 	using namespace OpCode_x64;
 
@@ -177,9 +185,11 @@ void Create_OP_x64_mov_rx_xmm(JitFuncCreater &jfc, const Regs &regs)
 	movss(jfc, pr15, xmm0);
 	movss(jfc, prax, xmm15);
 	movss(jfc, pr15, xmm15);
+
+    return true;
 }
 
-void Create_OP_x64(JitFuncCreater &jfc)
+bool Create_OP_x64(JitFuncCreater &jfc)
 {
 	using namespace OpCode_x64;
 	Regs regs;
@@ -200,11 +210,13 @@ void Create_OP_x64(JitFuncCreater &jfc)
 
 	for (byte r = xmm0; r <= xmm15; r++) regs.xmm.push_back(r);
 
-	//Create_OP_x64_mov(jfc, regs);
-	//Create_OP_x64_push_pop(jfc, regs);
-	//Create_OP_x64_mov_rx_dat(jfc, regs);
-	//Create_OP_x64_add_sub(jfc, regs);
-	//Create_OP_x64_mov_rx_xmm(jfc, regs);
+	Create_OP_x64_mov(jfc, regs);
+	Create_OP_x64_push_pop(jfc, regs);
+	Create_OP_x64_mov_rx_dat(jfc, regs);
+	Create_OP_x64_add_sub(jfc, regs);
+	Create_OP_x64_mov_rx_xmm(jfc, regs);
+
+    return true;
 }
 
 int main()

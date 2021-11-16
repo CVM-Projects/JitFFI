@@ -5,4 +5,4 @@ include_directories(include)
 
 aux_source_directory(source SOURCE)
 
-add_executable(jitffi ${SOURCE} testsuite/test1.cpp)
+add_executable(jitffi ${SOURCE} testsuite/test0.cpp)

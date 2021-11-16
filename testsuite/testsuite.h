@@ -18,8 +18,8 @@ void old_printf(const char *msg, Args... args) {
 
 void print_num(uint32_t v) { printf("0x%X\n", v); }
 void print_num(int32_t v) { printf("0x%X\n", v); }
-void print_num(uint64_t v) { printf("0x%llX\n", v); }
-void print_num(int64_t v) { printf("0x%llX\n", v); }
+void print_num(uint64_t v) { printf("0x%lX\n", v); }
+void print_num(int64_t v) { printf("0x%lX\n", v); }
 void print_num(double v) { printf("%lf\n", v); }
 void print_num(float v) { printf("%f\n", v); }
 void print_num(long double v) { printf("%Lf\n", v); }

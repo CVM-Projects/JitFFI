@@ -2,6 +2,7 @@
 #include "jitffi-def.h"
 #include "opcode.h"
 #include "platform/argtype-sysv64.h"
+#include <cstdio>
 
 namespace JitFFI
 {
