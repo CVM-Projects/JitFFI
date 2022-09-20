@@ -13,14 +13,17 @@ int main() {
     size_t size = 20 * sizeof(uint32_t);
     int r = 0;
     jitfuncpool pool = jitfuncpool_alloc(size);
-    r = jitfuncpool_copy_from(pool, &add, size);
+    assert(pool != NULL);
+    r = jitfuncpool_copy_from(pool, (const void*)&add, size);
     assert(r == 0);
     r = jitfuncpool_set_executable(pool);
     assert(r == 0);
 
-    func *f = jitfuncpool_get_func(pool);
+    func *f = (func*)jitfuncpool_get_func(pool);
     assert(f(5, 6) == 11);
 
     r = jitfuncpool_free(pool);
     assert(r == 0);
+
+    return 0;
 }

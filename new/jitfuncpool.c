@@ -22,7 +22,7 @@ enum pool_access_mode {
     PAM_READ_EXEC = PAM_READ | PAM_EXEC,
 };
 
-// If failed, return -1
+/* If failed, return -1 */
 static int get_mode_flag(enum pool_access_mode mode) {
 #if defined(_WIN32)
     switch (mode) {
@@ -44,20 +44,22 @@ static int get_mode_flag(enum pool_access_mode mode) {
 #endif
 }
 
+/* if error occurs, return NULL */
 static void* impl_jitfuncpool_alloc(size_t size, enum pool_access_mode mode) {
     int flag = get_mode_flag(mode);
     assert(flag != -1);
 #if defined(_WIN32)
     void *pool = VirtualAlloc(NULL, size, MEM_COMMIT | MEM_RESERVE, flag);
-    assert(pool != NULL);
 #else
     void *pool = mmap(NULL, size, flag, MAP_ANON | MAP_PRIVATE | MAP_JIT, -1, 0);
-    assert(pool != NULL && pool != MAP_FAILED);
+    if (pool == MAP_FAILED) {
+        return NULL;
+    }
 #endif
     return pool;
 }
 
-// if no error, return 0
+/* if no error, return 0 */
 static int impl_jitfuncpool_free(void *pool, size_t size) {
 #if defined(_WIN32)
     BOOL v = VirtualFree(pool, 0, MEM_RELEASE);
@@ -68,7 +70,7 @@ static int impl_jitfuncpool_free(void *pool, size_t size) {
 #endif
 }
 
-// if no error, return 0
+/* if no error, return 0 */
 static int impl_jitfuncpool_set_pool_mode(void *pool, size_t size, enum pool_access_mode mode) {
     int flag = get_mode_flag(mode);
     assert(flag != -1);
@@ -87,12 +89,15 @@ typedef struct impl_jitfuncpool {
 } impl_jitfuncpool;
 
 static size_t impl_get_pool_size(jitfuncpool pool) {
-    return ((impl_jitfuncpool*)(pool))->pool_size;
+    return ((impl_jitfuncpool*)pool)->pool_size;
 }
 
-// API
+/* APIs */
 jitfuncpool JITFUNCPOOL_API(alloc)(size_t size) {
-    impl_jitfuncpool *pool = impl_jitfuncpool_alloc(sizeof(size_t) + size, PAM_READWRITE);
+    impl_jitfuncpool *pool = (impl_jitfuncpool*)impl_jitfuncpool_alloc(sizeof(size_t) + size, PAM_READWRITE);
+    if (pool == NULL) {
+        return NULL;
+    }
     pool->pool_size = size + sizeof(size_t);
     return pool;
 }
@@ -103,7 +108,7 @@ int JITFUNCPOOL_API(free)(jitfuncpool pool) {
 }
 
 void* JITFUNCPOOL_API(get_func)(jitfuncpool pool) {
-    return ((size_t*)(pool)) + 1;
+    return ((size_t*)pool) + 1;
 }
 
 int JITFUNCPOOL_API(set_executable)(jitfuncpool pool) {
@@ -113,7 +118,7 @@ int JITFUNCPOOL_API(set_executable)(jitfuncpool pool) {
 
 int JITFUNCPOOL_API(copy_from)(jitfuncpool pool, const void *src, size_t src_size) {
     void *func = JITFUNCPOOL_API(get_func)(pool);
-    size_t size = impl_get_pool_size(pool) - (pool - func);
+    size_t size = impl_get_pool_size(pool) - sizeof(impl_jitfuncpool);
     if (size < src_size) {
         return -1;
     }
