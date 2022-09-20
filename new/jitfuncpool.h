@@ -1,16 +1,13 @@
 #include <stddef.h>
 
-enum pool_access_mode {
-    PAM_NONE = 0x00,
-    PAM_READ = 0x01,
-    PAM_WRITE = 0x02,
-    PAM_EXEC = 0x04,
-    PAM_READWRITE = PAM_READ | PAM_WRITE,
-    PAM_READ_EXEC = PAM_READ | PAM_EXEC,
-};
+#if !defined(JITFUNCPOOL_API)
+#   define JITFUNCPOOL_API(ident) jitfuncpool_##ident
+#endif
 
 typedef void* jitfuncpool;
 
-jitfuncpool jitfuncpool_alloc(size_t size, enum pool_access_mode mode);
-void jitfuncpool_set_pool_mode(jitfuncpool pool, size_t size, enum pool_access_mode mode);
-void jitfuncpool_free(jitfuncpool pool, size_t size);
+jitfuncpool JITFUNCPOOL_API(alloc)(size_t size);
+int JITFUNCPOOL_API(free)(jitfuncpool pool);  // if no error, return 0
+void* JITFUNCPOOL_API(get_func)(jitfuncpool pool);
+int JITFUNCPOOL_API(set_executable)(jitfuncpool pool);  // if no error, return 0
+int JITFUNCPOOL_API(copy_from)(jitfuncpool pool, const void *src, size_t src_size);  // if no error, return 0

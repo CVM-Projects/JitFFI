@@ -1,7 +1,5 @@
 #include <stdint.h>
 #include <assert.h>
-#include <printf.h>
-#include <string.h>
 
 #include "../jitfuncpool.h"
 
@@ -12,15 +10,17 @@ int add(int x, int y) {
 typedef int func(int, int);
 
 int main() {
-    size_t size = 8 * sizeof(uint32_t);
-    jitfuncpool pool = jitfuncpool_alloc(size, PAM_READWRITE);
+    size_t size = 20 * sizeof(uint32_t);
+    int r = 0;
+    jitfuncpool pool = jitfuncpool_alloc(size);
+    r = jitfuncpool_copy_from(pool, &add, size);
+    assert(r == 0);
+    r = jitfuncpool_set_executable(pool);
+    assert(r == 0);
 
-    memcpy(pool, &add, size);
-
-    jitfuncpool_set_pool_mode(pool, size, PAM_READ_EXEC);
-
-    func *f = pool;
+    func *f = jitfuncpool_get_func(pool);
     assert(f(5, 6) == 11);
 
-    jitfuncpool_free(pool, size);
+    r = jitfuncpool_free(pool);
+    assert(r == 0);
 }
