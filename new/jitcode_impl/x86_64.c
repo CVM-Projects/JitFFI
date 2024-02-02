@@ -10,22 +10,12 @@ static size_t _get_reg_bits(enum jitcode_register_x86_64 r) {
 }
 
 static uint8_t _get_40_prefix_value(enum jitcode_register_x86_64 r) {
-    // r64      -> 48, 49
-    // r32, r16 -> _, 41
-    // r8       -> _, 40, 41
+    uint8_t base = (r & 0x8) >> 3;
     size_t bits = _get_reg_bits(r);
-    int is_rb = r & 0x8;  // rb: r8 ~ r15
-    switch (bits) {
-    case 64:
-        return is_rb ? 0x49 : 0x48;
-    case 32:
-    case 16:
-        return is_rb ? 0x41 : 0;
-    case 8:
-        return is_rb ? 0x41 : (r & 0x4 ? 0x40 : 0);
-    default:
+    if (base == 0 && (bits == 32 || bits == 16 || (bits == 8 && !(r & 0x4)))) {
         return 0;
     }
+    return 0x40 + base + (bits == 64 ? 8 : 0);
 }
 
 uint8_t _get_40_prefix_value_2(enum jitcode_register_x86_64 dst, enum jitcode_register_x86_64 src, int cond_8bits) {
