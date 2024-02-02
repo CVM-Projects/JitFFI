@@ -79,43 +79,39 @@ static size_t _impl_mov_preg_reg(uint8_t *data, enum jitcode_register_x86_64 dst
 
 #define append_imm(data, type, imm) do { *(type*)data = imm; data += sizeof(type); } while (0)
 
+static size_t _impl_mov_reg_imm(uint8_t *data, enum jitcode_register_x86_64 r, uint64_t imm) {
+    const uint8_t * const start = data;
+
+    size_t bits = _get_reg_bits(r);
+
+    if (bits == 16) {
+        *(data++) = 0x66;
+    }
+    append_40_prefix(data, r);
+    *(data++) = 0xb0 + (r & 0x7) + (bits == 8 ? 0 : 8);
+
+    switch (bits) {
+    case 64: append_imm(data, uint64_t, imm); break;
+    case 32: append_imm(data, uint32_t, imm); break;
+    case 16: append_imm(data, uint16_t, imm); break;
+    case 8:  append_imm(data, uint8_t,  imm); break;
+    }
+
+    return data - start;
+}
+
 // %r = imm
 size_t JITCODE_API(mov_r64_imm64_x86_64)(uint8_t *data, enum jitcode_register_x86_64 r, uint64_t imm64) {
-    const uint8_t * const start = data;
-
-    append_40_prefix(data, r);
-    *(data++) = 0xb8 + (r & 0x7);
-    append_imm(data, uint64_t, imm64);
-
-    return data - start;
+    return _impl_mov_reg_imm(data, r, imm64);
 }
 size_t JITCODE_API(mov_r32_imm32_x86_64)(uint8_t *data, enum jitcode_register_x86_64 r, uint32_t imm32) {
-    const uint8_t * const start = data;
-
-    append_40_prefix(data, r);
-    *(data++) = 0xb8 + (r & 0x7);
-    append_imm(data, uint32_t, imm32);
-
-    return data - start;
+    return _impl_mov_reg_imm(data, r, imm32);
 }
 size_t JITCODE_API(mov_r16_imm16_x86_64)(uint8_t *data, enum jitcode_register_x86_64 r, uint16_t imm16) {
-    const uint8_t * const start = data;
-
-    *(data++) = 0x66;
-    append_40_prefix(data, r);
-    *(data++) = 0xb8 + (r & 0x7);
-    append_imm(data, uint16_t, imm16);
-
-    return data - start;
+    return _impl_mov_reg_imm(data, r, imm16);
 }
 size_t JITCODE_API(mov_r8_imm8_x86_64)(uint8_t *data, enum jitcode_register_x86_64 r, uint8_t imm8) {
-    const uint8_t * const start = data;
-
-    append_40_prefix(data, r);
-    *(data++) = 0xb0 + (r & 0x7);
-    append_imm(data, uint8_t, imm8);
-
-    return data - start;
+    return _impl_mov_reg_imm(data, r, imm8);
 }
 
 // %r1 = %r2
