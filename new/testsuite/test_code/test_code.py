@@ -1,8 +1,8 @@
 from pathlib import Path
 import tempfile
 import subprocess
-import os
 import shutil
+import sys
 
 from keystone import *
 
@@ -51,9 +51,8 @@ TestCodeTemplate = '''#include "$file_x86_64_header"
 int main() {
     int error_count = 0;
     $test_code
-    if (error_count) {
-        printf("%d error(s)\\n", error_count);
-    }
+    printf("%d error(s)\\n", error_count);
+    return error_count;
 }
 '''
 
@@ -75,8 +74,6 @@ def _get_one_code(code, func, *args) -> str:
     ref_data = ', '.join(map(lambda c: f'0x{c:02x}', encoding))
     return OneCodeTemplate.replace('$code', code).replace('$ref_data', ref_data).replace('$ref_length', str(len(encoding))).replace('$func', func).replace('$args', ', '.join(args))
 
-one_codes = []
-
 
 def get_r_bits(r) -> int:
     if r in r64:
@@ -88,39 +85,66 @@ def get_r_bits(r) -> int:
     elif r in r8:
         return 8
 
+
 def get_jitcode_reg(r) -> str:
     bits = get_r_bits(r)
     return f'r{bits}_x86_64_{r}'
 
-# Add one codes
-# %r = imm
-for r in r64:
-    one_codes.append(_get_one_code(f'mov {r}, 0x123456789abcdef', 'jitcode_mov_r64_imm64_x86_64', get_jitcode_reg(r), '0x123456789abcdef'))
-for r in r32:
-    one_codes.append(_get_one_code(f'mov {r}, 0x12345678', 'jitcode_mov_r32_imm32_x86_64', get_jitcode_reg(r), '0x12345678'))
-for r in r16:
-    one_codes.append(_get_one_code(f'mov {r}, 0x1234', 'jitcode_mov_r16_imm16_x86_64', get_jitcode_reg(r), '0x1234'))
-for r in r8:
-    one_codes.append(_get_one_code(f'mov {r}, 0x12', 'jitcode_mov_r8_imm8_x86_64', get_jitcode_reg(r), '0x12'))
 
-for r2 in all_r:
-    for r1 in all_r:
-        if get_r_bits(r1) == get_r_bits(r2):
-            one_codes.append(_get_one_code(f'mov {r1}, {r2}', 'jitcode_mov_r1_r2_x86_64', get_jitcode_reg(r1), get_jitcode_reg(r2)))
+def append_mov1(one_codes):
+    # Add one codes
+    # %r = imm
+    for r in r64:
+        one_codes.append(_get_one_code(f'mov {r}, 0x123456789abcdef', 'jitcode_mov_r64_imm64_x86_64', get_jitcode_reg(r), '0x123456789abcdef'))
+    for r in r32:
+        one_codes.append(_get_one_code(f'mov {r}, 0x12345678', 'jitcode_mov_r32_imm32_x86_64', get_jitcode_reg(r), '0x12345678'))
+    for r in r16:
+        one_codes.append(_get_one_code(f'mov {r}, 0x1234', 'jitcode_mov_r16_imm16_x86_64', get_jitcode_reg(r), '0x1234'))
+    for r in r8:
+        one_codes.append(_get_one_code(f'mov {r}, 0x12', 'jitcode_mov_r8_imm8_x86_64', get_jitcode_reg(r), '0x12'))
 
-for r2 in all_r:
-    for r1 in all_r:
-        if get_r_bits(r1) == 64:
-            one_codes.append(_get_one_code(f'mov [{r1}], {r2}', 'jitcode_mov_pr1_r2_x86_64', get_jitcode_reg(r1), get_jitcode_reg(r2)))
+def append_mov2(one_codes):
+    # %r1 = %r2
+    for r2 in all_r:
+        for r1 in all_r:
+            if get_r_bits(r1) == get_r_bits(r2):
+                one_codes.append(_get_one_code(f'mov {r1}, {r2}', 'jitcode_mov_r1_r2_x86_64', get_jitcode_reg(r1), get_jitcode_reg(r2)))
 
-test_code = '\n'.join(one_codes)
+def append_mov3(one_codes):
+    # *%r1 = %r2
+    for r2 in all_r:
+        for r1 in all_r:
+            if get_r_bits(r1) in (64, 32):
+                one_codes.append(_get_one_code(f'mov [{r1}], {r2}', 'jitcode_mov_pr1_r2_x86_64', get_jitcode_reg(r1), get_jitcode_reg(r2)))
+
+def append_mov4(one_codes):
+    # %r1 = *%r2
+    for r2 in all_r:
+        for r1 in all_r:
+            if get_r_bits(r2) in (64, 32):
+                one_codes.append(_get_one_code(f'mov {r1}, [{r2}]', 'jitcode_mov_r1_pr2_x86_64', get_jitcode_reg(r1), get_jitcode_reg(r2)))
 
 
-with tempfile.NamedTemporaryFile(suffix='.c', delete=True) as f:
-    test_code = TestCodeTemplate.replace('$file_x86_64_header', str(file_x86_64_header)).replace('$test_code', test_code)
-    f.write(test_code.encode())
-    f.flush()
-    print('Compiling...')
-    subprocess.check_call([shutil.which('cc'), '-g', f.name, '-o', f.name + '.out', file_x86_64_source])
-    print('Testing...')
-    subprocess.check_call([f.name + '.out'])
+def do_test(one_codes):
+    test_code = '\n'.join(one_codes)
+    with tempfile.NamedTemporaryFile(suffix='.c', delete=True) as f:
+        test_code = TestCodeTemplate.replace('$file_x86_64_header', str(file_x86_64_header)).replace('$test_code', test_code)
+        f.write(test_code.encode())
+        f.flush()
+        print('Compiling...')
+        sys.stdout.flush()
+        subprocess.check_call([shutil.which('cc'), '-g', f.name, '-o', f.name + '.out', file_x86_64_source])
+        print('Testing...')
+        sys.stdout.flush()
+        subprocess.check_call([f.name + '.out'])
+
+
+def gen(f):
+    one_codes = []
+    f(one_codes)
+    return one_codes
+
+do_test(gen(append_mov1))
+do_test(gen(append_mov2))
+do_test(gen(append_mov3))
+do_test(gen(append_mov4))

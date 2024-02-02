@@ -2,7 +2,7 @@
 #include <assert.h>
 
 #define append_40_prefix(data, r) do { uint8_t _40_prefix = _get_40_prefix_value(r); if (_40_prefix) { *(data++) = _40_prefix; } } while (0)
-#define append_40_prefix_2(data, r, v) do { uint8_t _40_prefix = _get_40_prefix_value(r); if (_40_prefix) { *(data++) = _40_prefix + (v); } else if (v) { *(data++) = 0x40 + (v); } } while (0)
+#define append_40_prefix_2(data, dst, src, cond_8bits) do { uint8_t _40_prefix = _get_40_prefix_value_2(dst, src, cond_8bits); if (_40_prefix) { *(data++) = _40_prefix; } } while (0)
 
 
 static size_t _get_reg_bits(enum jitcode_register_x86_64 r) {
@@ -28,6 +28,15 @@ static uint8_t _get_40_prefix_value(enum jitcode_register_x86_64 r) {
     }
 }
 
+uint8_t _get_40_prefix_value_2(enum jitcode_register_x86_64 dst, enum jitcode_register_x86_64 src, int cond_8bits) {
+    uint8_t base = ((src & 0x8) >> 1) | ((dst & 0x8) >> 3);
+    size_t src_bits = _get_reg_bits(src);
+    if (base == 0 && (src_bits == 32 || src_bits == 16 || (src_bits == 8 && !cond_8bits))) {
+        return 0;
+    }
+    return 0x40 + base + (src_bits == 64 ? 8 : 0);
+}
+
 static size_t _impl_mov_reg_reg(uint8_t *data, enum jitcode_register_x86_64 dst, enum jitcode_register_x86_64 src) {
     const uint8_t * const start = data;
 
@@ -37,13 +46,7 @@ static size_t _impl_mov_reg_reg(uint8_t *data, enum jitcode_register_x86_64 dst,
     if (bits == 16) {
         *(data++) = 0x66;
     }
-    uint8_t _40_prefix = _get_40_prefix_value(dst);
-    if (bits == 8 && _40_prefix == 0 && !(dst < 4 && src < 4)) {
-        *(data++) = 0x40 + ((src & 0x8) >> 1);
-    } else 
-    {
-        append_40_prefix_2(data, dst, (src & 0x8) >> 1);
-    }
+    append_40_prefix_2(data, dst, src, ((dst & 0x4) | (src & 0x4)));
     *(data++) = (bits == 8) ? 0x88 : 0x89;
     *(data++) = 0xc0 + ((src & 0x7) * 8) + (dst & 0x7);
 
@@ -53,25 +56,27 @@ static size_t _impl_mov_reg_reg(uint8_t *data, enum jitcode_register_x86_64 dst,
 static size_t _impl_mov_preg_reg(uint8_t *data, enum jitcode_register_x86_64 dst, enum jitcode_register_x86_64 src, int src_ptr) {
     const uint8_t * const start = data;
 
-    size_t dst_bits = _get_reg_bits(dst);
-    size_t src_bits = _get_reg_bits(src);
+    enum jitcode_register_x86_64 ptr_r = src_ptr ? src : dst;
+    enum jitcode_register_x86_64 drt_r = src_ptr ? dst : src;
 
-    assert(dst_bits == 64 || dst_bits == 32);
-    assert(src_bits <= dst_bits);  // src bits <= dst bits
+    size_t ptr_bits = _get_reg_bits(ptr_r);
+    size_t drt_bits = _get_reg_bits(drt_r);
 
-    if (dst_bits == 32) {
+    assert(ptr_bits == 64 || ptr_bits == 32);
+
+    if (ptr_bits == 32) {
         *(data++) = 0x67;
     }
-    if (src_bits == 16) {
+    if (drt_bits == 16) {
         *(data++) = 0x66;
     }
-    append_40_prefix_2(data, src, (src & 0x8) >> 1);
-    *(data++) = (dst_bits == 8) ? (src_ptr ? 0x8a : 0x88) : (src_ptr ? 0x8b : 0x89);
-    uint8_t basecode = (src & 0x7) * 8 + (dst & 0x7);
-    if ((dst & 0x7) == 0x4) {
+    append_40_prefix_2(data, ptr_r, drt_r, drt_r & 0x4);
+    *(data++) = (drt_bits == 8) ? (src_ptr ? 0x8a : 0x88) : (src_ptr ? 0x8b : 0x89);
+    uint8_t basecode = (drt_r & 0x7) * 8 + (ptr_r & 0x7);
+    if ((ptr_r & 0x7) == 0x4) {
         *(data++) = basecode;
         *(data++) = 0x24;
-    } else if ((dst & 0x7) == 0x5) {
+    } else if ((ptr_r & 0x7) == 0x5) {
         *(data++) = 0x40 + basecode;
         *(data++) = 0x00;
     } else {
