@@ -18,7 +18,7 @@ static uint8_t _get_40_prefix_value(enum jitcode_register_x86_64 r) {
     return 0x40 + base + (bits == 64 ? 8 : 0);
 }
 
-uint8_t _get_40_prefix_value_2(enum jitcode_register_x86_64 dst, enum jitcode_register_x86_64 src, int cond_8bits) {
+static uint8_t _get_40_prefix_value_2(enum jitcode_register_x86_64 dst, enum jitcode_register_x86_64 src, int cond_8bits) {
     uint8_t base = ((src & 0x8) >> 1) | ((dst & 0x8) >> 3);
     size_t src_bits = _get_reg_bits(src);
     if (base == 0 && (src_bits == 32 || src_bits == 16 || (src_bits == 8 && !cond_8bits))) {
@@ -76,8 +76,8 @@ static size_t _impl_mov_preg_reg(uint8_t *data, enum jitcode_register_x86_64 dst
     return data - start;
 }
 
-#define append_imm(data, type, imm) do { *(type*)data = imm; data += sizeof(type); } while (0)
 
+#define append_imm(data, type, imm) do { *(type*)data = imm; data += sizeof(type); } while (0)
 
 // %r = imm
 size_t JITCODE_API(mov_r64_imm64_x86_64)(uint8_t *data, enum jitcode_register_x86_64 r, uint64_t imm64) {
