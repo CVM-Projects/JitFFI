@@ -27,6 +27,28 @@ static uint8_t _get_40_prefix_value_2(enum jitcode_register_x86_64 dst, enum jit
     return 0x40 + base + (src_bits == 64 ? 8 : 0);
 }
 
+static size_t _impl_mov_reg_imm(uint8_t *data, enum jitcode_register_x86_64 r, uint64_t imm) {
+    const uint8_t * const start = data;
+
+    size_t bits = _get_reg_bits(r);
+
+    if (bits == 16) {
+        *(data++) = 0x66;
+    }
+    append_40_prefix(data, r);
+    *(data++) = 0xb0 + (r & 0x7) + (bits == 8 ? 0 : 8);
+
+    switch (bits) {
+    case 64: *(uint64_t*)data = imm; break;
+    case 32: *(uint32_t*)data = imm; break;
+    case 16: *(uint16_t*)data = imm; break;
+    case  8:  *(uint8_t*)data = imm; break;
+    }
+    data += (bits >> 3);
+
+    return data - start;
+}
+
 static size_t _impl_mov_reg_reg(uint8_t *data, enum jitcode_register_x86_64 dst, enum jitcode_register_x86_64 src) {
     const uint8_t * const start = data;
 
@@ -76,29 +98,6 @@ static size_t _impl_mov_preg_reg(uint8_t *data, enum jitcode_register_x86_64 dst
     return data - start;
 }
 
-
-#define append_imm(data, type, imm) do { *(type*)data = imm; data += sizeof(type); } while (0)
-
-static size_t _impl_mov_reg_imm(uint8_t *data, enum jitcode_register_x86_64 r, uint64_t imm) {
-    const uint8_t * const start = data;
-
-    size_t bits = _get_reg_bits(r);
-
-    if (bits == 16) {
-        *(data++) = 0x66;
-    }
-    append_40_prefix(data, r);
-    *(data++) = 0xb0 + (r & 0x7) + (bits == 8 ? 0 : 8);
-
-    switch (bits) {
-    case 64: append_imm(data, uint64_t, imm); break;
-    case 32: append_imm(data, uint32_t, imm); break;
-    case 16: append_imm(data, uint16_t, imm); break;
-    case 8:  append_imm(data, uint8_t,  imm); break;
-    }
-
-    return data - start;
-}
 
 // %r = imm
 size_t JITCODE_API(mov_r64_imm64_x86_64)(uint8_t *data, enum jitcode_register_x86_64 r, uint64_t imm64) {
