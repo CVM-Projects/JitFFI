@@ -60,6 +60,7 @@ r64 = ('rax', 'rcx', 'rdx', 'rbx', 'rsp', 'rbp', 'rsi', 'rdi', 'r8', 'r9', 'r10'
 r32 = ('eax', 'ecx', 'edx', 'ebx', 'esp', 'ebp', 'esi', 'edi', 'r8d', 'r9d', 'r10d', 'r11d', 'r12d', 'r13d', 'r14d', 'r15d')
 r16 = ('ax', 'cx', 'dx', 'bx', 'sp', 'bp', 'si', 'di', 'r8w', 'r9w', 'r10w', 'r11w', 'r12w', 'r13w', 'r14w', 'r15w')
 r8 = ('al', 'cl', 'dl', 'bl', 'spl', 'bpl', 'sil', 'dil', 'r8b', 'r9b', 'r10b', 'r11b', 'r12b', 'r13b', 'r14b', 'r15b')
+xmm = ('xmm0', 'xmm1', 'xmm2', 'xmm3', 'xmm4', 'xmm5', 'xmm6', 'xmm7', 'xmm8', 'xmm9', 'xmm10', 'xmm11', 'xmm12', 'xmm13', 'xmm14', 'xmm15')
 
 all_r = r64 + r32 + r16 + r8
 
@@ -76,6 +77,8 @@ def _get_one_code(code, func, *args) -> str:
 
 
 def get_r_bits(r) -> int:
+    if r in xmm:
+        return 128
     if r in r64:
         return 64
     elif r in r32:
@@ -124,6 +127,15 @@ def append_mov4(one_codes):
             if get_r_bits(r2) in (64, 32):
                 one_codes.append(_get_one_code(f'mov {r1}, [{r2}]', 'jitcode_mov_r1_pr2_x86_64', get_jitcode_reg(r1), get_jitcode_reg(r2)))
 
+def append_mov5(one_codes):
+    # %r1 = %r2, one is xmm
+    for r2 in r64 + r32:
+        for r1 in xmm:
+            one_codes.append(_get_one_code(f'mov{"q" if r2 in r64 else "d"} {r1}, {r2}', 'jitcode_mov_r1_r2_x86_64', get_jitcode_reg(r1), get_jitcode_reg(r2)))
+    for r2 in xmm:
+        for r1 in r64 + r32:
+            one_codes.append(_get_one_code(f'mov{"q" if r1 in r64 else "d"} {r1}, {r2}', 'jitcode_mov_r1_r2_x86_64', get_jitcode_reg(r1), get_jitcode_reg(r2)))
+
 
 def do_test(one_codes):
     test_code = '\n'.join(one_codes)
@@ -136,7 +148,10 @@ def do_test(one_codes):
         subprocess.check_call([shutil.which('cc'), '-g', f.name, '-o', f.name + '.out', file_x86_64_source])
         print('Testing...')
         sys.stdout.flush()
-        subprocess.check_call([f.name + '.out'])
+        sp = subprocess.run([f.name + '.out'], stdout=subprocess.PIPE)
+        if sp.returncode != 0:
+            print(sp.stdout.decode())
+            raise RuntimeError
 
 
 def gen(f):
@@ -148,3 +163,4 @@ do_test(gen(append_mov1))
 do_test(gen(append_mov2))
 do_test(gen(append_mov3))
 do_test(gen(append_mov4))
+do_test(gen(append_mov5))
