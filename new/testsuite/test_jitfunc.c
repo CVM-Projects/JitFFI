@@ -9,7 +9,8 @@ int add(int x, int y) {
 
 typedef int func(int, int);
 
-#include "../jitcode_impl/x86_64.h"
+// #include "../jitcode_impl/x86_64.h"
+#include "../jitcode_impl/arm64.h"
 
 #include <stdio.h>
 
@@ -29,16 +30,21 @@ int main() {
     r = jitfunc_free(the_func);
     assert(r == 0);
 
-
     jitfunc new_func = jitfunc_alloc(0x10000);
     assert(new_func != NULL);
-    size_t s = jitcode_mov_r64_imm64_x86_64(new_func, r64_x86_64_rax, 12345);
-    ((uint8_t*)new_func)[s] = 0xc3;
+    uint8_t *raw = (uint8_t*)new_func;
+    size_t s = 0;
+    s = jitcode_mov_r64_imm64_arm64(raw, r64_arm64_x0, 0x123456789abcdef0);
+    raw += s;
+    *(uint32_t*)raw = 0x52824680;
+    raw += 4;
+    s = jitcode_return_arm64(raw);
+    raw += s;
     r = jitfunc_set_executable(the_func);
     assert(r == 0);
-    typedef int func_1();
+    typedef int64_t func_1();
     func_1 *ff = (func_1*)new_func;
-    printf("%d\n", ff());
+    printf("0x%llx\n", ff());
 
     return 0;
 }

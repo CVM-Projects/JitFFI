@@ -168,3 +168,9 @@ size_t JITCODE_API(mov_pr1_r2_x86_64)(uint8_t *data, enum jitcode_register_x86_6
 size_t JITCODE_API(mov_r1_pr2_x86_64)(uint8_t *data, enum jitcode_register_x86_64 dst, enum jitcode_register_x86_64 src) {
     return _impl_mov_pgpr_gpr(data, dst, src, 1);
 }
+
+// return
+size_t JITCODE_API(return_x86_64)(uint8_t *data) {
+    *data = 0xc3;
+    return 1;
+}
