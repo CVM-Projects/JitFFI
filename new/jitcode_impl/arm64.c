@@ -72,6 +72,7 @@ size_t JITCODE_API(mov_r1_r2_arm64)(uint8_t *data, enum jitcode_register_arm64 d
 
 // *%r1 = %r2
 size_t JITCODE_API(mov_pr1_r2_arm64)(uint8_t *data, enum jitcode_register_arm64 dst, enum jitcode_register_arm64 src) {
+    // str src, [dst]
     assert(_get_reg_bits(dst) == 64 && dst != r64_arm64_x31);
     *(uint32_t*)data = ((_get_reg_bits(src) == 64 ? 0xf9000000 : 0xb9000000) | (src & 0x1f) | ((dst & 0x1f) << 5));
     return 4;
@@ -79,6 +80,7 @@ size_t JITCODE_API(mov_pr1_r2_arm64)(uint8_t *data, enum jitcode_register_arm64 
 
 // %r1 = *%r2
 size_t JITCODE_API(mov_r1_pr2_arm64)(uint8_t *data, enum jitcode_register_arm64 dst, enum jitcode_register_arm64 src) {
+    // ldr dst, [src]
     assert(_get_reg_bits(src) == 64 && src != r64_arm64_x31);
     *(uint32_t*)data = (_get_reg_bits(dst) == 64 ? 0xf9400000 : 0xb9400000) | (dst & 0x1f) | ((src & 0x1f) << 5);
     return 4;
