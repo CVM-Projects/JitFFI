@@ -34,10 +34,14 @@ int main() {
     assert(new_func != NULL);
     uint8_t *raw = (uint8_t*)new_func;
     size_t s = 0;
-    s = jitcode_mov_r64_imm64_arm64(raw, r64_arm64_x0, 0x123456789abcdef0);
+    s = jitcode_mov_r64_imm64_arm64(raw, r64_arm64_x1, 0x123456789abcdef0);
     raw += s;
-    *(uint32_t*)raw = 0x52824680;
-    raw += 4;
+    s = jitcode_mov_r1_r2_arm64(raw, r64_arm64_x0, r64_arm64_x1);
+    raw += s;
+    s = jitcode_mov_r1_pr2_arm64(raw, r64_arm64_x0, r64_arm64_x0);
+    raw += s;
+    s = jitcode_mov_r1_pr2_arm64(raw, r64_arm64_x0, r64_arm64_x1);
+    raw += s;
     s = jitcode_return_arm64(raw);
     raw += s;
     r = jitfunc_set_executable(the_func);
