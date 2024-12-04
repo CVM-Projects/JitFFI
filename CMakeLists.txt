@@ -8,4 +8,4 @@ include_directories(include)
 aux_source_directory(source SOURCE)
 
 add_executable(jitffi ${SOURCE} testsuite/test0.cpp)
-add_executable(jitffi-test new/jitfunc.c new/testsuite/test_jitfunc.c new/jitcode_impl/x86_64.c)
+add_executable(jitffi-test new/jitfunc.c new/testsuite/test_jitfunc.c new/jitcode_impl/x86_64.c new/jitcode_impl/arm64.c)
