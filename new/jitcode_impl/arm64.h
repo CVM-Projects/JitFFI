@@ -37,6 +37,8 @@ enum jitcode_register_arm64 {
     r64_arm64_x29 = 0x100 | 0x1d,
     r64_arm64_x30 = 0x100 | 0x1e,
     r64_arm64_x31 = 0x100 | 0x1f,
+    r64_arm64_xzr = r64_arm64_x31,
+    r64_arm64_sp  = r64_arm64_x31,
     // 32 bits
     r32_arm64_w0  = 0x000 | 0x00,
     r32_arm64_w1  = 0x000 | 0x01,
