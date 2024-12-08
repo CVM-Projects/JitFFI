@@ -1,8 +1,15 @@
 #include "arm64.h"
 #include <assert.h>
 
+static int _is_gpr(enum jitcode_register_arm64 r) {
+    return (r & 0xf000) == 0x0000;
+}
+static int _is_vec(enum jitcode_register_arm64 r) {
+    return (r & 0xf000) == 0x1000;
+}
+
 static size_t _get_reg_bits(enum jitcode_register_arm64 r) {
-    return 1 << (((r & 0xf00) >> 8) + 5);
+    return 1 << (((r & 0x0f00) >> 8) + 3);
 }
 
 static void _set_code(uint8_t **data, uint32_t code) {
@@ -29,6 +36,7 @@ static uint32_t _impl_movk_reg(enum jitcode_register_arm64 r, uint16_t imm16, en
 // %r = imm
 size_t JITCODE_API(mov_r64_imm64_arm64)(uint8_t *data, enum jitcode_register_arm64 r, uint64_t imm64) {
     assert(_get_reg_bits(r) == 64);
+    assert(_is_gpr(r));
     uint8_t *current = data;
     uint16_t imm_16vec[4] = {
         (imm64 & 0x000000000000ffffull),
@@ -51,6 +59,7 @@ size_t JITCODE_API(mov_r64_imm64_arm64)(uint8_t *data, enum jitcode_register_arm
 
 size_t JITCODE_API(mov_r32_imm32_arm64)(uint8_t *data, enum jitcode_register_arm64 r, uint32_t imm32) {
     assert(_get_reg_bits(r) == 32);
+    assert(_is_gpr(r));
     uint8_t *current = data;
     uint16_t imm_16vec[2] = {
         (imm32 & 0x0000fffful),
@@ -66,7 +75,24 @@ size_t JITCODE_API(mov_r32_imm32_arm64)(uint8_t *data, enum jitcode_register_arm
 // %r1 = %r2
 size_t JITCODE_API(mov_r1_r2_arm64)(uint8_t *data, enum jitcode_register_arm64 dst, enum jitcode_register_arm64 src) {
     assert(_get_reg_bits(dst) == _get_reg_bits(src));
-    *(uint32_t*)data = (_get_reg_bits(dst) == 64 ? 0xaa0003e0 : 0x2a0003e0) | (dst & 0x1f) | ((src & 0x1f) << 16);
+    size_t bits = _get_reg_bits(dst);
+    uint32_t code = 0;
+    if (_is_gpr(dst) && _is_gpr(src)) {
+        code = (bits == 64 ? 0xaa0003e0 : 0x2a0003e0) | (dst & 0x1f) | ((src & 0x1f) << 16);
+    } else if (bits == 64) {
+        uint32_t basecode = 0;
+        if (_is_gpr(dst) && _is_vec(src)) {
+            basecode = 0x9e660000;
+        } else if (_is_vec(dst) && _is_gpr(src)) {
+            basecode = 0x9e670000;
+        } else {
+            basecode = 0x1e604000;
+        }
+        code = basecode | ((src & 0x1f) << 5) | (dst & 0x1f);
+    } else {
+        assert(0);
+    }
+    *(uint32_t*)data = code;
     return 4;
 }
 
@@ -74,6 +100,7 @@ size_t JITCODE_API(mov_r1_r2_arm64)(uint8_t *data, enum jitcode_register_arm64 d
 size_t JITCODE_API(mov_pr1_r2_arm64)(uint8_t *data, enum jitcode_register_arm64 dst, enum jitcode_register_arm64 src) {
     // str src, [dst]
     assert(_get_reg_bits(dst) == 64);
+    assert(_is_gpr(dst) && _is_gpr(src));
     *(uint32_t*)data = ((_get_reg_bits(src) == 64 ? 0xf9000000 : 0xb9000000) | (src & 0x1f) | ((dst & 0x1f) << 5));
     return 4;
 }
@@ -82,6 +109,7 @@ size_t JITCODE_API(mov_pr1_r2_arm64)(uint8_t *data, enum jitcode_register_arm64 
 size_t JITCODE_API(mov_r1_pr2_arm64)(uint8_t *data, enum jitcode_register_arm64 dst, enum jitcode_register_arm64 src) {
     // ldr dst, [src]
     assert(_get_reg_bits(src) == 64);
+    assert(_is_gpr(dst) && _is_gpr(src));
     *(uint32_t*)data = (_get_reg_bits(dst) == 64 ? 0xf9400000 : 0xb9400000) | (dst & 0x1f) | ((src & 0x1f) << 5);
     return 4;
 }

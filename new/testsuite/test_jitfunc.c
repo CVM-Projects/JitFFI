@@ -9,6 +9,8 @@ int add(int x, int y) {
 
 typedef int func(int, int);
 
+typedef double func_2();
+
 // #include "../jitcode_impl/x86_64.h"
 #include "../jitcode_impl/arm64.h"
 
@@ -38,10 +40,6 @@ int main() {
     raw += s;
     s = jitcode_mov_r1_r2_arm64(raw, r64_arm64_x0, r64_arm64_x1);
     raw += s;
-    s = jitcode_mov_r1_pr2_arm64(raw, r64_arm64_x0, r64_arm64_x0);
-    raw += s;
-    s = jitcode_mov_r1_pr2_arm64(raw, r64_arm64_x0, r64_arm64_x1);
-    raw += s;
     s = jitcode_return_arm64(raw);
     raw += s;
     r = jitfunc_set_executable(the_func);
@@ -49,6 +47,26 @@ int main() {
     typedef int64_t func_1();
     func_1 *ff = (func_1*)new_func;
     printf("0x%llx\n", ff());
+
+    double x = 0.5;
+    printf("%lf %llx\n", x, *(uint64_t*)&x);
+
+
+    {
+        jitfunc new_func = jitfunc_alloc(0x10000);
+        assert(new_func != NULL);
+        uint8_t *raw = (uint8_t*)new_func;
+        raw += jitcode_mov_r64_imm64_arm64(raw, r64_arm64_x0, 0x3fe0000000000000);
+        raw += jitcode_mov_r1_r2_arm64(raw, r64_arm64_d0, r64_arm64_x0);
+
+        raw += jitcode_return_arm64(raw);
+        r = jitfunc_set_executable(new_func);
+        assert(r == 0);
+        typedef double func_2();
+        func_2 *ff = (func_2*)new_func;
+        x = ff();
+        printf("%lf %llx\n", x, *(uint64_t*)&x);
+    }
 
     return 0;
 }
